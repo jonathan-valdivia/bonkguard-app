@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "981200782180",
+    "project_id": "bonkguard-33685",
+    "storage_bucket": "bonkguard-33685.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:981200782180:android:5509b7b643202a26633071",
+        "android_client_info": {
+          "package_name": "com.bonkguard.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAEpJEWUspJK6rlTDqw_mL-I5JqOId-aIg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
