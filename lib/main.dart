@@ -38,6 +38,7 @@ class BonkGuardApp extends StatelessWidget {
       home: Scaffold(
         appBar: AppBar(title: const Text('BonkGuard')),
         body: Center(
+          // Button to test analytics
           child: ElevatedButton(
             onPressed: () async {
               await analytics.logEvent(
