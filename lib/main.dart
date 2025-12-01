@@ -1,4 +1,4 @@
-import 'dart:async'; // make sure this is imported
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -38,16 +38,26 @@ class BonkGuardApp extends StatelessWidget {
       home: Scaffold(
         appBar: AppBar(title: const Text('BonkGuard')),
         body: Center(
-          // Button to test analytics
-          child: ElevatedButton(
-            onPressed: () async {
-              await analytics.logEvent(
-                name: 'bonkguard_test_event',
-                parameters: {'source': 'dev_setup'},
-              );
-              debugPrint('Logged bonkguard_test_event');
-            },
-            child: const Text('Button'),
+          child: Row(
+            mainAxisSize:
+                MainAxisSize.min, // keeps the row tight around the buttons
+            children: [
+              ElevatedButton(
+                onPressed: () async {
+                  await analytics.logEvent(
+                    name: 'bonkguard_test_event',
+                    parameters: {'source': 'dev_setup'},
+                  );
+                  debugPrint('Logged bonkguard_test_event');
+                },
+                child: const Text('Test Event'),
+              ),
+              const SizedBox(width: 16), // space between buttons
+              ElevatedButton(
+                onPressed: () => throw Exception(),
+                child: const Text('Test CRASH!'),
+              ),
+            ],
           ),
         ),
       ),
