@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 void main() {
@@ -54,8 +55,22 @@ class BonkGuardApp extends StatelessWidget {
               ),
               const SizedBox(width: 16), // space between buttons
               ElevatedButton(
-                onPressed: () => throw Exception(),
-                child: const Text('Test CRASH!'),
+                onPressed: () async {
+                  try {
+                    await FirebaseFirestore.instance
+                        .collection('devTests')
+                        .add({
+                          'createdAt': DateTime.now(),
+                          'note': 'Hello from BonkGuard Firestore test',
+                        });
+                    debugPrint('Firestore write succeeded');
+                  } catch (e, st) {
+                    debugPrint('Firestore write FAILED: $e');
+                    // Crashlytics will also pick this up
+                    FirebaseCrashlytics.instance.recordError(e, st);
+                  }
+                },
+                child: const Text('Test Firestore Write'),
               ),
             ],
           ),
