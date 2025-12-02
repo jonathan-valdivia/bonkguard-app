@@ -1,12 +1,20 @@
 import 'dart:async';
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 
 final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+
+// RevenueCat TEST STORE API Key
+const String _rcTestApiKey = 'test_rUCSMpxkqldLXjtvRTOkPtnLzEi';
+final configuration = PurchasesConfiguration(_rcTestApiKey);
+
 void main() {
   runZonedGuarded<Future<void>>(
     () async {
@@ -19,6 +27,10 @@ void main() {
       // Crashlytics setup: log all Flutter errors
       FlutterError.onError =
           FirebaseCrashlytics.instance.recordFlutterFatalError;
+
+      // RevenueCat: configured with Test store
+      final configuration = PurchasesConfiguration(_rcTestApiKey);
+      await Purchases.configure(configuration);
 
       runApp(const BonkGuardApp());
     },
@@ -34,14 +46,13 @@ class BonkGuardApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'BonkGuard',
+      debugShowCheckedModeBanner: false,
       home: Scaffold(
         appBar: AppBar(title: const Text('BonkGuard')),
         body: Center(
-          child: Row(
-            mainAxisSize:
-                MainAxisSize.min, // keeps the row tight around the buttons
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               ElevatedButton(
                 onPressed: () async {
@@ -53,7 +64,7 @@ class BonkGuardApp extends StatelessWidget {
                 },
                 child: const Text('Test Event'),
               ),
-              const SizedBox(width: 16), // space between buttons
+              const SizedBox(height: 16), // space between buttons
               ElevatedButton(
                 onPressed: () async {
                   try {
@@ -71,6 +82,27 @@ class BonkGuardApp extends StatelessWidget {
                   }
                 },
                 child: const Text('Test Firestore Write'),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    final offerings = await Purchases.getOfferings();
+                    if (offerings.current != null) {
+                      debugPrint(
+                        'RevenueCat offerings loaded: ${offerings.current!.identifier}',
+                      );
+                    } else {
+                      debugPrint(
+                        'RevenueCat connected, but no current offering is configured yet.',
+                      );
+                    }
+                  } catch (e, st) {
+                    debugPrint('Error fetching offerings: $e');
+                    FirebaseCrashlytics.instance.recordError(e, st);
+                  }
+                },
+                child: const Text('Test RevenueCat Offerings'),
               ),
             ],
           ),
