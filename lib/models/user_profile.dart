@@ -8,6 +8,7 @@ class UserProfile {
   final int carbsPerHour;
   final String units; // 'metric' or 'imperial'
   final DateTime createdAt;
+  final bool onboardingComplete;
 
   UserProfile({
     required this.uid,
@@ -16,6 +17,7 @@ class UserProfile {
     required this.carbsPerHour,
     required this.units,
     required this.createdAt,
+    required this.onboardingComplete,
   });
 
   Map<String, dynamic> toMap() {
@@ -26,11 +28,13 @@ class UserProfile {
       'carbsPerHour': carbsPerHour,
       'units': units,
       'createdAt': Timestamp.fromDate(createdAt),
+      'onboardingComplete': onboardingComplete,
     };
   }
 
   factory UserProfile.fromDoc(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
     return UserProfile(
       uid: data['uid'] as String,
       email: data['email'] as String,
@@ -38,6 +42,7 @@ class UserProfile {
       carbsPerHour: data['carbsPerHour'] as int? ?? 60,
       units: data['units'] as String? ?? 'metric',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      onboardingComplete: data['onboardingComplete'] as bool? ?? false,
     );
   }
 }

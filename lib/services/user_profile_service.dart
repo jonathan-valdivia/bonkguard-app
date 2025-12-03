@@ -24,9 +24,10 @@ class UserProfileService {
       uid: uid,
       email: email,
       weightKg: null,
-      carbsPerHour: 60, // default – we’ll make this editable later
-      units: 'metric', // default – can be changed to 'imperial'
+      carbsPerHour: 60, // default
+      units: 'metric', // default
       createdAt: DateTime.now(),
+      onboardingComplete: false,
     );
 
     await docRef.set(profile.toMap());
@@ -36,5 +37,12 @@ class UserProfileService {
     final doc = await _usersCollection.doc(uid).get();
     if (!doc.exists) return null;
     return UserProfile.fromDoc(doc);
+  }
+
+  Future<void> updateProfile({
+    required String uid,
+    required Map<String, dynamic> data,
+  }) async {
+    await _usersCollection.doc(uid).update(data);
   }
 }
