@@ -1,18 +1,26 @@
 import 'dart:async';
 import 'app_theme.dart';
-
+import 'auth/auth_gate.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
+
+// firebase imports
 import 'firebase_options.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+// revenueCat imports
 import 'package:purchases_flutter/purchases_flutter.dart';
+
 // imports for PDF printing:
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 
+// ^^ IMPORTS ^^
+
+// firebase analytics instance
 final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 
 // RevenueCat TEST STORE API Key
@@ -77,7 +85,8 @@ class BonkGuardApp extends StatelessWidget {
           bodyMedium: TextStyle(color: AppColors.textPrimary, fontSize: 16),
         ),
       ),
-      home: const HomeScreen(),
+      home: const AuthGate(),
+      //home: const HomeScreen(),
     );
   }
 }
