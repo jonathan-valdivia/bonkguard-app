@@ -2,6 +2,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'sign_in_page.dart';
+import '../app_theme.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -39,7 +40,7 @@ class _HomePlaceholder extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('BonkGuard'),
+        title: const BonkGuardLogo(),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),

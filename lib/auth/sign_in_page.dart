@@ -1,6 +1,9 @@
 // lib/auth/sign_in_page.dart
+import 'package:bonkguard_app/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../services/user_profile_service.dart';
+import '../app_theme.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -42,17 +45,35 @@ class _SignInPageState extends State<SignInPage> {
 
       if (_isLoginMode) {
         // Login
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
+        final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: email,
           password: password,
         );
+
+        final user = cred.user;
+        if (user != null) {
+          await UserProfileService.instance.createUserProfileIfNotExists(
+            uid: user.uid,
+            email: user.email ?? email,
+          );
+        }
       } else {
         // Register
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: email,
           password: password,
         );
+
+        final user = cred.user;
+        if (user != null) {
+          // Create Firestore profile document
+          await UserProfileService.instance.createUserProfileIfNotExists(
+            uid: user.uid,
+            email: user.email ?? email,
+          );
+        }
       }
+
       // On success, StreamBuilder in AuthGate will update automatically.
     } on FirebaseAuthException catch (e) {
       setState(() {
@@ -82,7 +103,7 @@ class _SignInPageState extends State<SignInPage> {
         : "Already have an account? Log in";
 
     return Scaffold(
-      appBar: AppBar(title: const Text('BonkGuard')),
+      appBar: AppBar(title: const BonkGuardLogo()),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
