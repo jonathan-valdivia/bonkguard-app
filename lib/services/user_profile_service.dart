@@ -33,6 +33,33 @@ class UserProfileService {
     await docRef.set(profile.toMap());
   }
 
+  /// New: always returns a profile; creates it if missing
+  Future<UserProfile> getOrCreateUserProfile({
+    required String uid,
+    required String email,
+  }) async {
+    final docRef = _usersCollection.doc(uid);
+    final doc = await docRef.get();
+
+    if (doc.exists) {
+      return UserProfile.fromDoc(doc);
+    }
+
+    // If no profile doc yet, create a default one
+    final profile = UserProfile(
+      uid: uid,
+      email: email,
+      weightKg: null,
+      carbsPerHour: 60,
+      units: 'metric',
+      createdAt: DateTime.now(),
+      onboardingComplete: false,
+    );
+
+    await docRef.set(profile.toMap());
+    return profile;
+  }
+
   Future<UserProfile?> getUserProfile(String uid) async {
     final doc = await _usersCollection.doc(uid).get();
     if (!doc.exists) return null;

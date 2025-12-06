@@ -5,6 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/user_profile.dart';
 import '../services/user_profile_service.dart';
+import '../models/fuel_event.dart';
+import '../models/fuel_item.dart';
+import '../models/fuel_plan.dart';
 
 class OnboardingPage extends StatefulWidget {
   final UserProfile profile;
@@ -147,29 +150,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   key: _formKey,
                   child: Column(
                     children: [
-                      // Weight
-                      TextFormField(
-                        controller: _weightController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: isImperial ? 'Weight (lb)' : 'Weight (kg)',
-                          border: const OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter your weight';
-                          }
-                          final parsed = double.tryParse(value.trim());
-                          if (parsed == null || parsed <= 0) {
-                            return 'Please enter a valid weight';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
                       // Units dropdown
                       DropdownButtonFormField<String>(
                         value: _units,
@@ -192,6 +172,29 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           setState(() {
                             _units = value;
                           });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Weight
+                      TextFormField(
+                        controller: _weightController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: isImperial ? 'Weight (lb)' : 'Weight (kg)',
+                          border: const OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter your weight';
+                          }
+                          final parsed = double.tryParse(value.trim());
+                          if (parsed == null || parsed <= 0) {
+                            return 'Please enter a valid weight';
+                          }
+                          return null;
                         },
                       ),
                       const SizedBox(height: 12),
@@ -253,9 +256,44 @@ class _HomePlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
+    // --- TEMP: test fueling plan models ---
+    // You can delete this later
+    final fuelLibrary = {
+      'maurten_320': const FuelItem(
+        id: 'maurten_320',
+        name: 'Maurten 320',
+        type: FuelItemType.drinkMix,
+        carbsPerServing: 80,
+        caloriesPerServing: 320,
+        description: 'One bottle (500–750ml)',
+      ),
+    };
+
+    final events = [
+      FuelEvent(minuteFromStart: 30, fuelItemId: 'maurten_320', servings: 1),
+      FuelEvent(minuteFromStart: 90, fuelItemId: 'maurten_320', servings: 1),
+    ];
+
+    final testPlan = FuelingPlan(
+      id: 'test',
+      userId: user?.uid ?? 'test-user',
+      createdAt: DateTime.now(),
+      rideDuration: const Duration(hours: 3),
+      targetCarbsPerHour: 80,
+      events: events,
+      name: 'Test Ride',
+    );
+
+    final totalCarbs = testPlan.totalCarbs(fuelLibrary);
+    final totalCalories = testPlan.totalCalories(fuelLibrary);
+
+    debugPrint('Test plan total carbs: $totalCarbs g'); // Expect 160
+    debugPrint('Test plan total calories: $totalCalories'); // Expect 640
+    // --- END TEMP ---
+
     return Scaffold(
       appBar: AppBar(
-        title: const BonkGuardLogo(),
+        title: const Text('BonkGuard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -264,7 +302,7 @@ class _HomePlaceholder extends StatelessWidget {
         ],
       ),
       body: Center(
-        child: Text('Welcome to BonkGuard, ${user?.email ?? 'athlete'}!'),
+        child: Text('Signed in as: ${user?.email ?? 'Unknown user'}'),
       ),
     );
   }

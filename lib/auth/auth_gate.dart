@@ -29,9 +29,12 @@ class AuthGate extends StatelessWidget {
           return const SignInPage();
         }
 
-        // Logged in, now load profile
-        return FutureBuilder<UserProfile?>(
-          future: UserProfileService.instance.getUserProfile(user.uid),
+        // Logged in, now load or create profile
+        return FutureBuilder<UserProfile>(
+          future: UserProfileService.instance.getOrCreateUserProfile(
+            uid: user.uid,
+            email: user.email ?? '',
+          ),
           builder: (context, profileSnapshot) {
             if (profileSnapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
@@ -49,18 +52,14 @@ class AuthGate extends StatelessWidget {
               );
             }
 
-            final profile = profileSnapshot.data;
-
-            // If somehow no profile, create a basic one and show onboarding
-            if (profile == null) {
+            if (!profileSnapshot.hasData) {
+              // This should now be very rare because getOrCreate always returns
               return const Scaffold(
-                body: Center(
-                  child: Text(
-                    'No profile found. Please sign out and sign in again.',
-                  ),
-                ),
+                body: Center(child: Text('Still preparing your profile...')),
               );
             }
+
+            final profile = profileSnapshot.data!;
 
             if (!profile.onboardingComplete) {
               return OnboardingPage(profile: profile);
@@ -84,7 +83,7 @@ class _HomePlaceholder extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const BonkGuardLogo(),
+        title: const Text('BonkGuard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
