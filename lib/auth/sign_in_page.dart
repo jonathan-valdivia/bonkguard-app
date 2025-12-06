@@ -18,6 +18,32 @@ class _SignInPageState extends State<SignInPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  // Helper to have better worded error messages
+  String _mapFirebaseAuthError(FirebaseAuthException e, bool isLoginMode) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'That doesn\'t look like a valid email address.';
+      case 'user-disabled':
+        return 'This account has been disabled. Please contact support.';
+      case 'user-not-found':
+        return isLoginMode
+            ? 'No account found with that email. Try signing up instead.'
+            : 'User account not found.';
+      case 'wrong-password':
+        return 'Incorrect password. Please try again.';
+      case 'email-already-in-use':
+        return 'An account already exists with that email. Try logging in instead.';
+      case 'weak-password':
+        return 'That password is too weak. Try something a bit stronger.';
+      case 'network-request-failed':
+        return 'Network error. Please check your connection and try again.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please wait a bit and try again.';
+      default:
+        return e.message ?? 'Authentication error. Please try again.';
+    }
+  }
+
   bool _isLoginMode = true; // true: login, false: register
   bool _isLoading = false;
   String? _errorText;
@@ -30,7 +56,9 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   Future<void> _submit() async {
-    // Validate fields
+    // Prevent double taps while already loading
+    if (_isLoading) return;
+
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
 
@@ -66,7 +94,6 @@ class _SignInPageState extends State<SignInPage> {
 
         final user = cred.user;
         if (user != null) {
-          // Create Firestore profile document
           await UserProfileService.instance.createUserProfileIfNotExists(
             uid: user.uid,
             email: user.email ?? email,
@@ -74,21 +101,38 @@ class _SignInPageState extends State<SignInPage> {
         }
       }
 
-      // On success, StreamBuilder in AuthGate will update automatically.
+      // On success, AuthGate will react to auth change
+      if (!mounted) return;
+
+      // Optional: show a quick success SnackBar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isLoginMode
+                ? 'Logged in successfully.'
+                : 'Account created successfully.',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
       setState(() {
-        _errorText = e.message ?? 'Authentication error';
+        _errorText = _mapFirebaseAuthError(e, _isLoginMode);
       });
     } catch (e) {
+      if (!mounted) return;
+
       setState(() {
         _errorText = 'Something went wrong. Please try again.';
       });
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 

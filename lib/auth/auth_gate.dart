@@ -40,10 +40,10 @@ class AuthGate extends StatelessWidget {
             }
 
             if (profileSnapshot.hasError) {
-              return Scaffold(
+              return const Scaffold(
                 body: Center(
                   child: Text(
-                    'Error loading profile: ${profileSnapshot.error}',
+                    'Error loading your profile. Please try signing out and back in.',
                   ),
                 ),
               );

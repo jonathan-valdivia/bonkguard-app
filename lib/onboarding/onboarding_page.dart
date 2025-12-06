@@ -252,8 +252,17 @@ class _HomePlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
-      appBar: AppBar(title: const BonkGuardLogo()),
+      appBar: AppBar(
+        title: const BonkGuardLogo(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => FirebaseAuth.instance.signOut(),
+          ),
+        ],
+      ),
       body: Center(
         child: Text('Welcome to BonkGuard, ${user?.email ?? 'athlete'}!'),
       ),
