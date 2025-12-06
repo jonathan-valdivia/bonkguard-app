@@ -6,6 +6,7 @@ import '../services/user_profile_service.dart';
 import '../onboarding/onboarding_page.dart';
 import 'sign_in_page.dart';
 import '../app_theme.dart';
+import '../home/home_screen.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -66,34 +67,10 @@ class AuthGate extends StatelessWidget {
             }
 
             // Onboarding done → go to home
-            return const _HomePlaceholder();
+            return HomeScreen(profile: profile);
           },
         );
       },
-    );
-  }
-}
-
-class _HomePlaceholder extends StatelessWidget {
-  const _HomePlaceholder({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('BonkGuard'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => FirebaseAuth.instance.signOut(),
-          ),
-        ],
-      ),
-      body: Center(
-        child: Text('Signed in as: ${user?.email ?? 'Unknown user'}'),
-      ),
     );
   }
 }

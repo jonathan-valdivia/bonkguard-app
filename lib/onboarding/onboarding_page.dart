@@ -5,9 +5,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/user_profile.dart';
 import '../services/user_profile_service.dart';
+import '../services/fueling_plan_service.dart';
 import '../models/fuel_event.dart';
 import '../models/fuel_item.dart';
 import '../models/fuel_plan.dart';
+import '../home/home_screen.dart';
 
 class OnboardingPage extends StatefulWidget {
   final UserProfile profile;
@@ -101,9 +103,23 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
       if (!mounted) return;
 
+      // Reload profile so we have the updated values
+      final updatedProfile = await UserProfileService.instance.getUserProfile(
+        user.uid,
+      );
+
+      if (!mounted) return;
+
+      if (updatedProfile == null) {
+        setState(() {
+          _errorText = 'Unable to load your updated profile.';
+        });
+        return;
+      }
+
       // Go to main home screen after saving
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const _HomePlaceholder()),
+        MaterialPageRoute(builder: (_) => HomeScreen(profile: updatedProfile)),
       );
     } catch (e) {
       setState(() {
@@ -242,67 +258,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-// For now, reuse the same placeholder home as in AuthGate.
-// Later we'll centralize this in a single place.
-class _HomePlaceholder extends StatelessWidget {
-  const _HomePlaceholder({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
-    // --- TEMP: test fueling plan models ---
-    // You can delete this later
-    final fuelLibrary = {
-      'maurten_320': const FuelItem(
-        id: 'maurten_320',
-        name: 'Maurten 320',
-        type: FuelItemType.drinkMix,
-        carbsPerServing: 80,
-        caloriesPerServing: 320,
-        description: 'One bottle (500–750ml)',
-      ),
-    };
-
-    final events = [
-      FuelEvent(minuteFromStart: 30, fuelItemId: 'maurten_320', servings: 1),
-      FuelEvent(minuteFromStart: 90, fuelItemId: 'maurten_320', servings: 1),
-    ];
-
-    final testPlan = FuelingPlan(
-      id: 'test',
-      userId: user?.uid ?? 'test-user',
-      createdAt: DateTime.now(),
-      rideDuration: const Duration(hours: 3),
-      targetCarbsPerHour: 80,
-      events: events,
-      name: 'Test Ride',
-    );
-
-    final totalCarbs = testPlan.totalCarbs(fuelLibrary);
-    final totalCalories = testPlan.totalCalories(fuelLibrary);
-
-    debugPrint('Test plan total carbs: $totalCarbs g'); // Expect 160
-    debugPrint('Test plan total calories: $totalCalories'); // Expect 640
-    // --- END TEMP ---
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('BonkGuard'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => FirebaseAuth.instance.signOut(),
-          ),
-        ],
-      ),
-      body: Center(
-        child: Text('Signed in as: ${user?.email ?? 'Unknown user'}'),
       ),
     );
   }
