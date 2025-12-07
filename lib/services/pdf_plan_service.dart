@@ -30,8 +30,6 @@ class PdfPlanService {
     // 1.5" x 5" in PDF points (1" = 72 points)
     const pageFormat = PdfPageFormat(138, 360);
 
-    // Precompute table rows with cumulative carbs
-    int cumulativeCarbs = 0;
     final rows = <pw.TableRow>[];
 
     // Header row
@@ -48,7 +46,6 @@ class PdfPlanService {
     for (final event in plan.events) {
       final item = FuelLibrary.getById(event.fuelItemId);
       final itemCarbs = (item?.carbsPerServing ?? 0) * event.servings;
-      cumulativeCarbs += itemCarbs;
 
       final timeMinutes = event.minuteFromStart;
       final h = timeMinutes ~/ 60;

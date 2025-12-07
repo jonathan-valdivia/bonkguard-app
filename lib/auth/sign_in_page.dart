@@ -3,7 +3,6 @@ import 'package:bonkguard_app/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/user_profile_service.dart';
-import '../app_theme.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -128,6 +127,7 @@ class _SignInPageState extends State<SignInPage> {
         _errorText = 'Something went wrong. Please try again.';
       });
     } finally {
+      // ignore: control_flow_in_finally
       if (!mounted) return;
 
       setState(() {

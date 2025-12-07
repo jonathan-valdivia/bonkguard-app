@@ -2,8 +2,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/user_profile.dart';
-import '../models/fuel_item.dart';
-import '../models/fuel_event.dart';
 import '../models/fuel_plan.dart';
 import '../services/fueling_plan_service.dart';
 import '../app_theme.dart';

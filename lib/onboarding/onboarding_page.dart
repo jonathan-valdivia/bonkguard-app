@@ -1,14 +1,9 @@
 // lib/onboarding/onboarding_page.dart
-import 'package:bonkguard_app/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/user_profile.dart';
 import '../services/user_profile_service.dart';
-import '../services/fueling_plan_service.dart';
-import '../models/fuel_event.dart';
-import '../models/fuel_item.dart';
-import '../models/fuel_plan.dart';
 import '../home/home_screen.dart';
 
 class OnboardingPage extends StatefulWidget {
@@ -168,7 +163,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     children: [
                       // Units dropdown
                       DropdownButtonFormField<String>(
-                        value: _units,
+                        initialValue: _units,
                         decoration: const InputDecoration(
                           labelText: 'Units',
                           border: OutlineInputBorder(),
