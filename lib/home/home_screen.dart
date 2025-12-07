@@ -1,19 +1,18 @@
 // lib/home/home_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../app_theme.dart';
 import '../models/user_profile.dart';
 import '../models/fuel_plan.dart';
 import '../services/fueling_plan_service.dart';
-import '../app_theme.dart';
-
 import '../data/fuel_library.dart';
-
 import '../plans/my_plans_screen.dart';
+import '../settings/settings_page.dart';
+import '../state/user_profile_notifier.dart';
 
 class HomeScreen extends StatefulWidget {
-  final UserProfile profile;
-
-  const HomeScreen({super.key, required this.profile});
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -43,15 +42,25 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
 
-    // Pre-fill carbs/hr from user profile
-    _carbsPerHourController = TextEditingController(
-      text: widget.profile.carbsPerHour.toString(),
-    );
+    // We can't read Provider in initState safely, so start with a default.
+    _carbsPerHourController = TextEditingController(text: '60');
 
     // Default pattern: drink → gel → drink
     _patternAId = 'maurten_160';
     _patternBId = 'gel_generic';
     _patternCId = 'maurten_320';
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Once we have a BuildContext, we can safely read the profile.
+    final profile = context.read<UserProfileNotifier>().profile;
+
+    // Only override the default once (so we don't overwrite user edits).
+    if (profile != null && _carbsPerHourController.text == '60') {
+      _carbsPerHourController.text = profile.carbsPerHour.toString();
+    }
   }
 
   @override
@@ -77,6 +86,18 @@ class _HomeScreenState extends State<HomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select all pattern items (A, B, C).'),
+        ),
+      );
+      return;
+    }
+
+    final profile = context.read<UserProfileNotifier>().profile;
+    if (profile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No profile loaded. Please sign out and sign in again.',
+          ),
         ),
       );
       return;
@@ -109,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
         : rawName;
 
     final plan = FuelingPlanService.instance.generateFixedPatternPlan(
-      userId: widget.profile.uid,
+      userId: profile.uid,
       rideDuration: rideDuration,
       targetCarbsPerHour: carbsPerHour,
       patternItems: patternItems,
@@ -163,28 +184,48 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _openSettings() async {
+    final updatedProfile = await Navigator.of(context).push<UserProfile>(
+      MaterialPageRoute(builder: (_) => const SettingsPage()),
+    );
+
+    if (updatedProfile != null && mounted) {
+      context.read<UserProfileNotifier>().updateProfile(updatedProfile);
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Settings saved.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final profile = widget.profile;
+    final profile = context.watch<UserProfileNotifier>().profile;
+
+    if (profile == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const BonkGuardLogo(),
         actions: [
           IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
+            onPressed: _openSettings,
+          ),
+          IconButton(
             icon: const Icon(Icons.list_alt),
             tooltip: 'My Plans',
             onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => MyPlansScreen(profile: profile),
-                ),
-              );
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const MyPlansScreen()));
             },
           ),
         ],
       ),
-
       body: Container(
         alignment: Alignment.topCenter,
         child: SingleChildScrollView(
@@ -221,7 +262,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
-
                           Row(
                             children: [
                               Expanded(
@@ -271,7 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            initialValue: _intensity,
+                            value: _intensity,
                             items: const [
                               DropdownMenuItem(
                                 value: 'Z1',
@@ -331,7 +371,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            initialValue: _patternAId,
+                            value: _patternAId,
                             items: _fuelDropdownItems(),
                             onChanged: (value) {
                               setState(() {
@@ -345,7 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            initialValue: _patternBId,
+                            value: _patternBId,
                             items: _fuelDropdownItems(),
                             onChanged: (value) {
                               setState(() {
@@ -359,7 +399,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            initialValue: _patternCId,
+                            value: _patternCId,
                             items: _fuelDropdownItems(),
                             onChanged: (value) {
                               setState(() {
@@ -414,7 +454,6 @@ class _HomeScreenState extends State<HomeScreen> {
       final h = timeMinutes ~/ 60;
       final m = timeMinutes % 60;
 
-      // Show as HH:MM even if H = 0, keeps it consistent
       final timeLabel =
           '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
 
@@ -459,8 +498,6 @@ class _HomeScreenState extends State<HomeScreen> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-
-            // Table is horizontally scrollable in case it overflows
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(

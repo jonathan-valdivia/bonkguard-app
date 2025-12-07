@@ -1,25 +1,27 @@
 // lib/plans/my_plans_screen.dart
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:printing/printing.dart';
 
-import '../models/user_profile.dart';
 import '../models/fuel_plan.dart';
 import '../data/fuel_library.dart';
 import '../services/fueling_plan_service.dart';
-
-import 'package:printing/printing.dart';
 import '../services/pdf_plan_service.dart';
 
 class MyPlansScreen extends StatelessWidget {
-  final UserProfile profile;
-
-  const MyPlansScreen({super.key, required this.profile});
+  const MyPlansScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const Scaffold(body: Center(child: Text('No logged-in user')));
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('My Plans')),
       body: FutureBuilder<List<FuelingPlan>>(
-        future: FuelingPlanService.instance.loadPlansForUser(profile.uid),
+        future: FuelingPlanService.instance.loadPlansForUser(user.uid),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -177,7 +179,6 @@ class PlanDetailScreen extends StatelessWidget {
                   height: 44,
                   child: ElevatedButton.icon(
                     onPressed: () async {
-                      // This stays on the main thread – no platform-thread warning.
                       await Printing.layoutPdf(
                         onLayout: (format) async {
                           return PdfPlanService.instance.buildPlanPdf(plan);

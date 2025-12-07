@@ -6,6 +6,8 @@ import '../services/user_profile_service.dart';
 import '../onboarding/onboarding_page.dart';
 import 'sign_in_page.dart';
 import '../home/home_screen.dart';
+import 'package:provider/provider.dart';
+import '../state/user_profile_notifier.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -53,20 +55,24 @@ class AuthGate extends StatelessWidget {
             }
 
             if (!profileSnapshot.hasData) {
-              // This should now be very rare because getOrCreate always returns
               return const Scaffold(
-                body: Center(child: Text('Still preparing your profile...')),
+                body: Center(child: Text('Preparing your profile...')),
               );
             }
 
             final profile = profileSnapshot.data!;
 
+            // 🔹 Set global profile *after* this build frame
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              context.read<UserProfileNotifier>().setProfile(profile);
+            });
+
             if (!profile.onboardingComplete) {
+              // pass profile into onboarding
               return OnboardingPage(profile: profile);
             }
 
-            // Onboarding done → go to home
-            return HomeScreen(profile: profile);
+            return const HomeScreen();
           },
         );
       },

@@ -1,24 +1,21 @@
-// lib/onboarding/onboarding_page.dart
+// lib/settings/settings_page.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/user_profile.dart';
 import '../services/user_profile_service.dart';
-import '../home/home_screen.dart';
 
 import 'package:provider/provider.dart';
 import '../state/user_profile_notifier.dart';
 
-class OnboardingPage extends StatefulWidget {
-  final UserProfile profile;
-
-  const OnboardingPage({super.key, required this.profile});
+class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
 
   @override
-  State<OnboardingPage> createState() => _OnboardingPageState();
+  State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _OnboardingPageState extends State<OnboardingPage> {
+class _SettingsPageState extends State<SettingsPage> {
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _weightController;
@@ -30,18 +27,32 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   void initState() {
     super.initState();
+    _weightController = TextEditingController();
+    _carbsController = TextEditingController();
+  }
 
-    // Pre-fill from profile if available
-    final weightKg = widget.profile.weightKg;
-    _weightController = TextEditingController(
-      text: weightKg != null ? weightKg.toStringAsFixed(1) : '',
-    );
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final profile = context.read<UserProfileNotifier>().profile;
 
-    _carbsController = TextEditingController(
-      text: widget.profile.carbsPerHour.toString(),
-    );
+    if (profile != null && _carbsController.text.isEmpty) {
+      _units = profile.units;
 
-    _units = widget.profile.units;
+      double? displayWeight;
+      if (profile.weightKg != null) {
+        if (_units == 'imperial') {
+          displayWeight = profile.weightKg! / 0.45359237;
+        } else {
+          displayWeight = profile.weightKg;
+        }
+      }
+
+      _weightController.text = displayWeight != null
+          ? displayWeight.toStringAsFixed(1)
+          : '';
+      _carbsController.text = profile.carbsPerHour.toString();
+    }
   }
 
   @override
@@ -74,10 +85,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
         return;
       }
 
-      // Convert to kg if user picked imperial
+      // Convert to kg for storage
       double weightKg = weight;
       if (_units == 'imperial') {
-        // assume user entered weight in pounds
         weightKg = weight * 0.45359237;
       }
 
@@ -91,17 +101,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
       await UserProfileService.instance.updateProfile(
         uid: user.uid,
-        data: {
-          'weightKg': weightKg,
-          'carbsPerHour': carbs,
-          'units': _units,
-          'onboardingComplete': true,
-        },
+        data: {'weightKg': weightKg, 'carbsPerHour': carbs, 'units': _units},
       );
 
-      if (!mounted) return;
-
-      // Reload profile so we have the updated values
+      // Reload updated profile from Firestore
       final updatedProfile = await UserProfileService.instance.getUserProfile(
         user.uid,
       );
@@ -115,14 +118,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
         return;
       }
 
-      // Update global profile
       context.read<UserProfileNotifier>().updateProfile(updatedProfile);
 
-      // Go to main home screen after saving
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+      // Return the updated profile to the caller (HomeScreen)
+      Navigator.of(context).pop<UserProfile>(updatedProfile);
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorText = 'Something went wrong. Please try again.';
       });
@@ -140,7 +141,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     final isImperial = _units == 'imperial';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Set up BonkGuard')),
+      appBar: AppBar(title: const Text('Settings')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -149,12 +150,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Tell us a bit about you',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
                 if (_errorText != null) ...[
                   Text(
                     _errorText!,
@@ -167,32 +162,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   key: _formKey,
                   child: Column(
                     children: [
-                      // Units dropdown
-                      DropdownButtonFormField<String>(
-                        initialValue: _units,
-                        decoration: const InputDecoration(
-                          labelText: 'Units',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'metric',
-                            child: Text('Metric (kg)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'imperial',
-                            child: Text('Imperial (lb)'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            _units = value;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
                       // Weight
                       TextFormField(
                         controller: _weightController,
@@ -212,6 +181,32 @@ class _OnboardingPageState extends State<OnboardingPage> {
                             return 'Please enter a valid weight';
                           }
                           return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Units dropdown
+                      DropdownButtonFormField<String>(
+                        value: _units,
+                        decoration: const InputDecoration(
+                          labelText: 'Units',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'metric',
+                            child: Text('Metric (kg)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'imperial',
+                            child: Text('Imperial (lb)'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _units = value;
+                          });
                         },
                       ),
                       const SizedBox(height: 12),
@@ -249,7 +244,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text('Save and continue'),
+                              : const Text('Save'),
                         ),
                       ),
                     ],
