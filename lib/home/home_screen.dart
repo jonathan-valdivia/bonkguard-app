@@ -26,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _hoursController = TextEditingController(text: '3');
   final _minutesController = TextEditingController(text: '0');
   late TextEditingController _carbsPerHourController;
+  final _planNameController = TextEditingController();
 
   String _intensity = 'Z2'; // placeholder for now
 
@@ -35,6 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _patternCId;
 
   FuelingPlan? _currentPlan;
+
+  bool _isSavingPlan = false;
 
   @override
   void initState() {
@@ -56,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _hoursController.dispose();
     _minutesController.dispose();
     _carbsPerHourController.dispose();
+    _planNameController.dispose();
     super.dispose();
   }
 
@@ -99,19 +103,64 @@ class _HomeScreenState extends State<HomeScreen> {
       FuelLibrary.getById(_patternCId!)!,
     ];
 
+    final rawName = _planNameController.text.trim();
+    final planName = rawName.isEmpty
+        ? 'Ride ${DateTime.now().toLocal()}'
+        : rawName;
+
     final plan = FuelingPlanService.instance.generateFixedPatternPlan(
       userId: widget.profile.uid,
       rideDuration: rideDuration,
       targetCarbsPerHour: carbsPerHour,
       patternItems: patternItems,
-      intervalMinutes: 40,
+      intervalMinutes: 20,
       startOffsetMinutes: 20,
-      name: 'Ride ${DateTime.now().toLocal()}',
+      name: planName,
     );
 
     setState(() {
       _currentPlan = plan;
     });
+  }
+
+  Future<void> _saveCurrentPlan() async {
+    final plan = _currentPlan;
+    if (plan == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No plan to save. Generate a plan first.'),
+        ),
+      );
+      return;
+    }
+
+    if (_isSavingPlan) return;
+
+    setState(() {
+      _isSavingPlan = true;
+    });
+
+    try {
+      await FuelingPlanService.instance.savePlan(plan);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Plan saved to your account.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to save plan. Please try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingPlan = false;
+        });
+      }
+    }
   }
 
   @override
@@ -148,6 +197,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
                           const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _planNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Plan name (optional)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
                           Row(
                             children: [
                               Expanded(
@@ -367,6 +425,9 @@ class _HomeScreenState extends State<HomeScreen> {
               'Generated plan',
               style: Theme.of(context).textTheme.titleLarge,
             ),
+            const SizedBox(height: 4),
+            if (plan.name != null)
+              Text(plan.name!, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Text('Ride duration: ${plan.rideDuration.inMinutes} min'),
             Text('Target: ${plan.targetCarbsPerHour} g/h'),
@@ -398,6 +459,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   DataColumn(label: Text('Total (g)')),
                 ],
                 rows: rows,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 44,
+              child: ElevatedButton.icon(
+                onPressed: _isSavingPlan ? null : _saveCurrentPlan,
+                icon: _isSavingPlan
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(_isSavingPlan ? 'Saving...' : 'Save plan'),
               ),
             ),
           ],

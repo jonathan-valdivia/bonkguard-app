@@ -1,5 +1,6 @@
 // lib/services/fueling_plan_service.dart
 import 'package:uuid/uuid.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/fuel_item.dart';
 import '../models/fuel_event.dart';
@@ -11,6 +12,12 @@ class FuelingPlanService {
   static final instance = FuelingPlanService._();
 
   final _uuid = const Uuid();
+
+  final _firestore = FirebaseFirestore.instance;
+
+  CollectionReference<Map<String, dynamic>> _plansCollection(String userId) {
+    return _firestore.collection('users').doc(userId).collection('plans');
+  }
 
   /// Generate a fixed-pattern fueling plan:
   ///
@@ -59,5 +66,25 @@ class FuelingPlanService {
       events: events,
       name: name,
     );
+  }
+
+  /// Save (or overwrite) a plan for a user.
+  ///
+  /// Uses plan.id as the document ID so the same plan can be updated later.
+  Future<void> savePlan(FuelingPlan plan) async {
+    final plansRef = _plansCollection(plan.userId);
+
+    await plansRef.doc(plan.id).set(plan.toMap());
+  }
+
+  /// Load all plans for a user (MVP: no paging, ordered by createdAt desc)
+  Future<List<FuelingPlan>> loadPlansForUser(String userId) async {
+    final querySnapshot = await _plansCollection(
+      userId,
+    ).orderBy('createdAt', descending: true).get();
+
+    return querySnapshot.docs
+        .map((doc) => FuelingPlan.fromMap(doc.id, doc.data()))
+        .toList();
   }
 }
