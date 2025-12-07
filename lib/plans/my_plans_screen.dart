@@ -6,6 +6,9 @@ import '../models/fuel_plan.dart';
 import '../data/fuel_library.dart';
 import '../services/fueling_plan_service.dart';
 
+import 'package:printing/printing.dart';
+import '../services/pdf_plan_service.dart';
+
 class MyPlansScreen extends StatelessWidget {
   final UserProfile profile;
 
@@ -167,6 +170,22 @@ class PlanDetailScreen extends StatelessWidget {
                       DataColumn(label: Text('Total (g)')),
                     ],
                     rows: rows,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 44,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      // This stays on the main thread – no platform-thread warning.
+                      await Printing.layoutPdf(
+                        onLayout: (format) async {
+                          return PdfPlanService.instance.buildPlanPdf(plan);
+                        },
+                      );
+                    },
+                    icon: const Icon(Icons.print),
+                    label: const Text('Print / Share PDF'),
                   ),
                 ),
               ],
