@@ -10,6 +10,8 @@ import '../app_theme.dart';
 
 import '../data/fuel_library.dart';
 
+import '../plans/my_plans_screen.dart';
+
 class HomeScreen extends StatefulWidget {
   final UserProfile profile;
 
@@ -168,7 +170,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final profile = widget.profile;
 
     return Scaffold(
-      appBar: AppBar(title: const BonkGuardLogo()),
+      appBar: AppBar(
+        title: const BonkGuardLogo(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.list_alt),
+            tooltip: 'My Plans',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => MyPlansScreen(profile: profile),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+
       body: Container(
         alignment: Alignment.topCenter,
         child: SingleChildScrollView(
