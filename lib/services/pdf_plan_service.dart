@@ -85,9 +85,9 @@ class PdfPlanService {
                 ),
                 pw.SizedBox(height: 2),
                 pw.Text(
-                  'Duration: ${durationMinutes} min\n'
+                  'Duration: $durationMinutes min\n'
                   'Target: ${plan.targetCarbsPerHour} g/h\n'
-                  'Total: ${totalCarbs} g',
+                  'Total: $totalCarbs g',
                   maxLines: 4,
                   overflow: pw.TextOverflow.clip,
                 ),
