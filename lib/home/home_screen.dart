@@ -8,6 +8,8 @@ import '../models/fuel_plan.dart';
 import '../services/fueling_plan_service.dart';
 import '../app_theme.dart';
 
+import '../data/fuel_library.dart';
+
 class HomeScreen extends StatefulWidget {
   final UserProfile profile;
 
@@ -34,9 +36,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   FuelingPlan? _currentPlan;
 
-  // Hard-coded MVP fuel library
-  late final Map<String, FuelItem> _fuelLibrary;
-
   @override
   void initState() {
     super.initState();
@@ -45,42 +44,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _carbsPerHourController = TextEditingController(
       text: widget.profile.carbsPerHour.toString(),
     );
-
-    // Hard-coded fuel library for MVP
-    _fuelLibrary = {
-      'maurten_160': const FuelItem(
-        id: 'maurten_160',
-        name: 'Maurten 160',
-        type: FuelItemType.drinkMix,
-        carbsPerServing: 40,
-        caloriesPerServing: 160,
-        description: 'One bottle (500–750ml)',
-      ),
-      'maurten_320': const FuelItem(
-        id: 'maurten_320',
-        name: 'Maurten 320',
-        type: FuelItemType.drinkMix,
-        carbsPerServing: 80,
-        caloriesPerServing: 320,
-        description: 'One bottle (500–750ml)',
-      ),
-      'gel_generic': const FuelItem(
-        id: 'gel_generic',
-        name: 'Generic Gel',
-        type: FuelItemType.gel,
-        carbsPerServing: 25,
-        caloriesPerServing: 100,
-        description: 'Single gel packet',
-      ),
-      'bar_generic': const FuelItem(
-        id: 'bar_generic',
-        name: 'Generic Bar',
-        type: FuelItemType.solid,
-        carbsPerServing: 30,
-        caloriesPerServing: 150,
-        description: 'One bar',
-      ),
-    };
 
     // Default pattern: drink → gel → drink
     _patternAId = 'maurten_160';
@@ -97,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<DropdownMenuItem<String>> _fuelDropdownItems() {
-    return _fuelLibrary.values
+    return FuelLibrary.list
         .map((item) => DropdownMenuItem(value: item.id, child: Text(item.name)))
         .toList();
   }
@@ -131,9 +94,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final rideDuration = Duration(minutes: totalMinutes);
 
     final patternItems = [
-      _fuelLibrary[_patternAId]!,
-      _fuelLibrary[_patternBId]!,
-      _fuelLibrary[_patternCId]!,
+      FuelLibrary.getById(_patternAId!)!,
+      FuelLibrary.getById(_patternBId!)!,
+      FuelLibrary.getById(_patternCId!)!,
     ];
 
     final plan = FuelingPlanService.instance.generateFixedPatternPlan(
@@ -141,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
       rideDuration: rideDuration,
       targetCarbsPerHour: carbsPerHour,
       patternItems: patternItems,
-      intervalMinutes: 20,
+      intervalMinutes: 40,
       startOffsetMinutes: 20,
       name: 'Ride ${DateTime.now().toLocal()}',
     );
@@ -358,10 +321,40 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPlanSummary(FuelingPlan plan) {
-    final totalCarbs = plan.totalCarbs(_fuelLibrary);
-    final totalCalories = plan.totalCalories(_fuelLibrary);
+    final totalCarbs = plan.totalCarbs(FuelLibrary.items);
+    final totalCalories = plan.totalCalories(FuelLibrary.items);
     final hours = plan.rideDuration.inMinutes / 60.0;
     final carbsPerHour = totalCarbs / hours;
+
+    // Build table rows with cumulative carbs
+    int cumulativeCarbs = 0;
+    final rows = <DataRow>[];
+
+    for (final event in plan.events) {
+      final item = FuelLibrary.getById(event.fuelItemId);
+      final itemCarbs = (item?.carbsPerServing ?? 0) * event.servings;
+
+      cumulativeCarbs += itemCarbs;
+
+      final timeMinutes = event.minuteFromStart;
+      final h = timeMinutes ~/ 60;
+      final m = timeMinutes % 60;
+
+      // Show as HH:MM even if H = 0, keeps it consistent
+      final timeLabel =
+          '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+
+      rows.add(
+        DataRow(
+          cells: [
+            DataCell(Text(timeLabel)),
+            DataCell(Text(item?.name ?? event.fuelItemId)),
+            DataCell(Text('$itemCarbs')),
+            DataCell(Text('$cumulativeCarbs')),
+          ],
+        ),
+      );
+    }
 
     return Card(
       elevation: 2,
@@ -384,24 +377,29 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 12),
             const Divider(),
             const SizedBox(height: 8),
-            Text('Events', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Fueling timeline',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
-            ...plan.events.map((event) {
-              final item = _fuelLibrary[event.fuelItemId];
-              final timeMinutes = event.minuteFromStart;
-              final h = timeMinutes ~/ 60;
-              final m = timeMinutes % 60;
-              final timeLabel =
-                  '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
 
-              return ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: Text(timeLabel),
-                title: Text(item?.name ?? event.fuelItemId),
-                subtitle: Text('Servings: ${event.servings}'),
-              );
-            }).toList(),
+            // Table is horizontally scrollable in case it overflows
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: 16,
+                headingRowHeight: 32,
+                dataRowMinHeight: 30,
+                dataRowMaxHeight: 36,
+                columns: const [
+                  DataColumn(label: Text('Time')),
+                  DataColumn(label: Text('Fuel')),
+                  DataColumn(label: Text('Carbs (g)')),
+                  DataColumn(label: Text('Total (g)')),
+                ],
+                rows: rows,
+              ),
+            ),
           ],
         ),
       ),
