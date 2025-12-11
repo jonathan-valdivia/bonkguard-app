@@ -311,7 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            value: _intensity,
+                            initialValue: _intensity,
                             items: const [
                               DropdownMenuItem(
                                 value: 'Z1',
@@ -371,7 +371,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            value: _patternAId,
+                            initialValue: _patternAId,
                             items: _fuelDropdownItems(),
                             onChanged: (value) {
                               setState(() {
@@ -385,7 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            value: _patternBId,
+                            initialValue: _patternBId,
                             items: _fuelDropdownItems(),
                             onChanged: (value) {
                               setState(() {
@@ -399,7 +399,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            value: _patternCId,
+                            initialValue: _patternCId,
                             items: _fuelDropdownItems(),
                             onChanged: (value) {
                               setState(() {

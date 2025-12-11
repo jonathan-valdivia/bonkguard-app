@@ -187,7 +187,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
                       // Units dropdown
                       DropdownButtonFormField<String>(
-                        value: _units,
+                        initialValue: _units,
                         decoration: const InputDecoration(
                           labelText: 'Units',
                           border: OutlineInputBorder(),
