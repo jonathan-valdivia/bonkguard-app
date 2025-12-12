@@ -75,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                
+                // removed welcome message and question
                 const SizedBox(height: 24),
                 Card(
                   elevation: 2,
