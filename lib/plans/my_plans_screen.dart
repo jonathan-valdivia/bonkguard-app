@@ -22,6 +22,50 @@ class MyPlansScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _confirmDeletePlan(BuildContext context, Plan plan) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete plan'),
+          content: Text(
+            'Are you sure you want to delete "${plan.name.isEmpty ? 'this plan' : plan.name}"?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) return;
+
+    try {
+      await PlanService.instance.deletePlan(plan.id);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Plan deleted.')),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to delete plan. Please try again.'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = context.watch<UserProfileNotifier>().profile;
@@ -103,6 +147,11 @@ class MyPlansScreen extends StatelessWidget {
                   title: Text(name),
                   subtitle: Text(subtitle),
                   onTap: () => _openEditPlan(context, plan),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Delete plan',
+                    onPressed: () => _confirmDeletePlan(context, plan),
+                  ),
                 ),
               );
             },

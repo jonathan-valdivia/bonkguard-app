@@ -27,6 +27,7 @@ class PlanService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
+  
   Stream<List<Plan>> userPlansStream(String userId) {
     return _plansRef
         .where('userId', isEqualTo: userId)
@@ -38,6 +39,7 @@ class PlanService {
               .toList(),
         );
   }
+  
   Future<void> updatePlan({
     required String planId,
     required String name,
@@ -50,5 +52,9 @@ class PlanService {
       'patternType': patternType,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> deletePlan(String planId) async {
+    await _plansRef.doc(planId).delete();
   }
 }
