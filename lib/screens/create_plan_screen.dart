@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../services/plan_service.dart';
+import '../state/user_profile_notifier.dart';
 
 class CreatePlanScreen extends StatefulWidget {
   const CreatePlanScreen({super.key});
@@ -14,16 +18,16 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
 
   String _selectedPattern = 'fixed'; // only option for now
   bool _isFormValid = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
 
-    // Whenever the user types, re-check if the form is valid
     _nameController.addListener(_updateFormValidity);
     _durationController.addListener(_updateFormValidity);
 
-    _updateFormValidity(); // initial state
+    _updateFormValidity();
   }
 
   @override
@@ -50,16 +54,58 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     }
   }
 
-  void _onSavePressed() {
+  Future<void> _onSavePressed() async {
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
+
+    final profile = context.read<UserProfileNotifier>().profile;
+    if (profile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No profile loaded. Please sign out and sign in again.'),
+        ),
+      );
+      return;
+    }
 
     final name = _nameController.text.trim();
     final durationMinutes = int.parse(_durationController.text.trim());
 
-    debugPrint('Saving plan: $name, $durationMinutes, $_selectedPattern');
+    setState(() {
+      _isSaving = true;
+    });
 
-    // TODO: Call Firestore save function
+    try {
+      await PlanService.instance.createPlan(
+        userId: profile.uid,
+        name: name,
+        durationMinutes: durationMinutes,
+        patternType: _selectedPattern,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Plan saved.')),
+      );
+
+      // Go back to previous screen (Home, which links to My Plans, etc.)
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save plan. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   @override
@@ -127,8 +173,15 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
               ),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: _isFormValid ? _onSavePressed : null,
-                child: const Text('Save plan'),
+                onPressed:
+                    _isFormValid && !_isSaving ? _onSavePressed : null,
+                child: _isSaving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Save plan'),
               ),
             ],
           ),
