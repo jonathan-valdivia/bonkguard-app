@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/plan.dart';
 import '../services/plan_service.dart';
 import '../state/user_profile_notifier.dart';
 
 class CreatePlanScreen extends StatefulWidget {
-  const CreatePlanScreen({super.key});
+  final Plan? initialPlan;
+
+  const CreatePlanScreen({
+    super.key,
+    this.initialPlan,
+  });
 
   @override
   State<CreatePlanScreen> createState() => _CreatePlanScreenState();
@@ -20,9 +26,19 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   bool _isFormValid = false;
   bool _isSaving = false;
 
+  bool get _isEditing => widget.initialPlan != null;
+
   @override
   void initState() {
     super.initState();
+
+    // If editing, pre-fill fields from the existing plan
+    final initialPlan = widget.initialPlan;
+    if (initialPlan != null) {
+      _nameController.text = initialPlan.name;
+      _durationController.text = initialPlan.durationMinutes.toString();
+      _selectedPattern = initialPlan.patternType;
+    }
 
     _nameController.addListener(_updateFormValidity);
     _durationController.addListener(_updateFormValidity);
@@ -76,20 +92,32 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     });
 
     try {
-      await PlanService.instance.createPlan(
-        userId: profile.uid,
-        name: name,
-        durationMinutes: durationMinutes,
-        patternType: _selectedPattern,
-      );
+      if (_isEditing) {
+        // ✅ Update existing plan
+        await PlanService.instance.updatePlan(
+          planId: widget.initialPlan!.id,
+          name: name,
+          durationMinutes: durationMinutes,
+          patternType: _selectedPattern,
+        );
+      } else {
+        // ✅ Create new plan
+        await PlanService.instance.createPlan(
+          userId: profile.uid,
+          name: name,
+          durationMinutes: durationMinutes,
+          patternType: _selectedPattern,
+        );
+      }
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Plan saved.')),
+        SnackBar(
+          content: Text(_isEditing ? 'Plan updated.' : 'Plan saved.'),
+        ),
       );
 
-      // Go back to previous screen (Home, which links to My Plans, etc.)
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
@@ -112,7 +140,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Plan'),
+        title: Text(_isEditing ? 'Edit Plan' : 'Create Plan'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -181,7 +209,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Save plan'),
+                    : Text(_isEditing ? 'Update plan' : 'Save plan'),
               ),
             ],
           ),

@@ -1,8 +1,9 @@
-
+// lib/plans/my_plans_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/plan.dart';
+import '../screens/create_plan_screen.dart';
 import '../services/plan_service.dart';
 import '../state/user_profile_notifier.dart';
 
@@ -11,6 +12,14 @@ class MyPlansScreen extends StatelessWidget {
 
   void _openCreatePlan(BuildContext context) {
     Navigator.of(context).pushNamed('/create-plan');
+  }
+
+  void _openEditPlan(BuildContext context, Plan plan) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CreatePlanScreen(initialPlan: plan),
+      ),
+    );
   }
 
   @override
@@ -93,10 +102,7 @@ class MyPlansScreen extends StatelessWidget {
                 child: ListTile(
                   title: Text(name),
                   subtitle: Text(subtitle),
-                  onTap: () {
-                    // BG-174 (Edit plan) will hook in here later
-                    // For now, just a placeholder.
-                  },
+                  onTap: () => _openEditPlan(context, plan),
                 ),
               );
             },

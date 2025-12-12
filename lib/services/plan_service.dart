@@ -38,4 +38,17 @@ class PlanService {
               .toList(),
         );
   }
+  Future<void> updatePlan({
+    required String planId,
+    required String name,
+    required int durationMinutes,
+    required String patternType,
+  }) async {
+    await _plansRef.doc(planId).update({
+      'name': name,
+      'durationMinutes': durationMinutes,
+      'patternType': patternType,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
 }
