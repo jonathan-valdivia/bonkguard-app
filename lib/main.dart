@@ -12,6 +12,7 @@ import 'firebase_options.dart';
 import 'app_theme.dart';
 import 'auth/auth_gate.dart';
 import 'state/user_profile_notifier.dart';
+import 'screens/create_plan_screen.dart';
 
 // firebase analytics instance
 final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
@@ -83,6 +84,10 @@ class BonkGuardApp extends StatelessWidget {
           ),
         ),
         home: const AuthGate(),
+
+         routes: {
+          '/create-plan': (context) => const CreatePlanScreen(),
+        },
       ),
     );
   }
