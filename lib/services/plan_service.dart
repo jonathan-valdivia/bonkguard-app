@@ -1,5 +1,6 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/plan.dart';
 
 class PlanService {
   PlanService._();
@@ -25,5 +26,16 @@ class PlanService {
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+  Stream<List<Plan>> userPlansStream(String userId) {
+    return _plansRef
+        .where('userId', isEqualTo: userId)
+        //.orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Plan.fromFirestore(doc))
+              .toList(),
+        );
   }
 }

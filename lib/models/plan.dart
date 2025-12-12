@@ -1,13 +1,14 @@
+// lib/models/plan.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Plan {
-  final String id;              // Firestore doc id
-  final String userId;          // owner
+  final String id;
+  final String userId;
   final String name;
-  final int durationMinutes;    // total duration in minutes
-  final String patternType;     // "fixed" for now
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final int durationMinutes;
+  final String patternType;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   Plan({
     required this.id,
@@ -15,30 +16,23 @@ class Plan {
     required this.name,
     required this.durationMinutes,
     required this.patternType,
-    required this.createdAt,
-    required this.updatedAt,
+    this.createdAt,
+    this.updatedAt,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'userId': userId,
-      'name': name,
-      'durationMinutes': durationMinutes,
-      'patternType': patternType,
-      'createdAt': createdAt.toUtc(),
-      'updatedAt': updatedAt.toUtc(),
-    };
-  }
+  factory Plan.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data() ?? {};
 
-  factory Plan.fromJson(String id, Map<String, dynamic> json) {
     return Plan(
-      id: id,
-      userId: json['userId'] as String,
-      name: json['name'] as String,
-      durationMinutes: json['durationMinutes'] as int,
-      patternType: json['patternType'] as String,
-      createdAt: (json['createdAt'] as Timestamp).toDate(),
-      updatedAt: (json['updatedAt'] as Timestamp).toDate(),
+      id: doc.id,
+      userId: data['userId'] as String? ?? '',
+      name: data['name'] as String? ?? '',
+      durationMinutes: (data['durationMinutes'] ?? 0) as int,
+      patternType: data['patternType'] as String? ?? 'fixed',
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
   }
 }
