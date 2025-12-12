@@ -20,6 +20,36 @@ class Plan {
     this.updatedAt,
   });
 
+  /// Domain JSON (not Firestore-specific) – useful for tests / local storage
+  Map<String, dynamic> toJson() {
+    return {
+      'userId': userId,
+      'name': name,
+      'durationMinutes': durationMinutes,
+      'patternType': patternType,
+      'createdAt': createdAt?.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
+    };
+  }
+
+  factory Plan.fromJson(String id, Map<String, dynamic> json) {
+    DateTime? parseDate(String? value) {
+      if (value == null) return null;
+      return DateTime.parse(value);
+    }
+
+    return Plan(
+      id: id,
+      userId: json['userId'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      durationMinutes: (json['durationMinutes'] ?? 0) as int,
+      patternType: json['patternType'] as String? ?? 'fixed',
+      createdAt: parseDate(json['createdAt'] as String?),
+      updatedAt: parseDate(json['updatedAt'] as String?),
+    );
+  }
+
+  /// Firestore-specific factory
   factory Plan.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
   ) {

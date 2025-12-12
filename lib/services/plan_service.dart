@@ -1,13 +1,22 @@
-
+// lib/services/plan_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/plan.dart';
 
 class PlanService {
-  PlanService._();
+  // Private constructor that takes a Firestore instance
+  PlanService._internal(this._firestore);
 
-  static final PlanService instance = PlanService._();
+  // Normal singleton used by the app
+  static final PlanService instance =
+      PlanService._internal(FirebaseFirestore.instance);
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // Factory for tests so we can pass a FakeFirebaseFirestore
+  factory PlanService.forTests(FirebaseFirestore firestore) {
+    return PlanService._internal(firestore);
+  }
+
+  final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> get _plansRef =>
       _firestore.collection('plans');
@@ -27,19 +36,17 @@ class PlanService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
-  
+
   Stream<List<Plan>> userPlansStream(String userId) {
     return _plansRef
         .where('userId', isEqualTo: userId)
-        //.orderBy('createdAt', descending: true)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => Plan.fromFirestore(doc))
-              .toList(),
+          (snapshot) =>
+              snapshot.docs.map((doc) => Plan.fromFirestore(doc)).toList(),
         );
   }
-  
+
   Future<void> updatePlan({
     required String planId,
     required String name,
