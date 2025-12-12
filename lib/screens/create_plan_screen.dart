@@ -13,20 +13,47 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   final _durationController = TextEditingController();
 
   String _selectedPattern = 'fixed'; // only option for now
+  bool _isFormValid = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Whenever the user types, re-check if the form is valid
+    _nameController.addListener(_updateFormValidity);
+    _durationController.addListener(_updateFormValidity);
+
+    _updateFormValidity(); // initial state
+  }
 
   @override
   void dispose() {
+    _nameController.removeListener(_updateFormValidity);
+    _durationController.removeListener(_updateFormValidity);
+
     _nameController.dispose();
     _durationController.dispose();
     super.dispose();
+  }
+
+  void _updateFormValidity() {
+    final name = _nameController.text.trim();
+    final durationText = _durationController.text.trim();
+    final duration = int.tryParse(durationText);
+
+    final isValid = name.isNotEmpty && duration != null && duration > 0;
+
+    if (isValid != _isFormValid) {
+      setState(() {
+        _isFormValid = isValid;
+      });
+    }
   }
 
   void _onSavePressed() {
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
 
-    // For now just log the values.
-    // Next task: hook this up to Firestore.
     final name = _nameController.text.trim();
     final durationMinutes = int.parse(_durationController.text.trim());
 
@@ -100,7 +127,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
               ),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: _onSavePressed,
+                onPressed: _isFormValid ? _onSavePressed : null,
                 child: const Text('Save plan'),
               ),
             ],
