@@ -75,15 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Welcome, ${profile.email}',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'What would you like to do?',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
+                
                 const SizedBox(height: 24),
                 Card(
                   elevation: 2,
