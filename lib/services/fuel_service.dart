@@ -1,6 +1,6 @@
 // lib/services/fuel_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:async/async.dart';
+
 
 import '../models/fuel_item.dart';
 import '../data/default_fuels.dart'; 
@@ -97,30 +97,28 @@ class FuelService {
     await _fuelsRef.doc(fuelId).delete();
   }
 
-  Stream<List<FuelItem>> streamUserFuels(String userId) {
-    final defaultFuelsStream = _fuelsRef
+  Stream<List<FuelItem>> streamUserFuels(String userId) async* {
+     final defaultSnapshot = await _fuelsRef
         .where('isDefault', isEqualTo: true)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map(FuelItem.fromFirestore).toList(),
-        );
+        .get();
 
-    final userFuelsStream = _fuelsRef
+    final defaultFuels = defaultSnapshot.docs
+        .map(FuelItem.fromFirestore)
+        .toList();
+
+    yield* _fuelsRef
         .where('userId', isEqualTo: userId)
         .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map(FuelItem.fromFirestore).toList(),
-        );
+        .map((snapshot) {
+      final userFuels = snapshot.docs
+          .map(FuelItem.fromFirestore)
+          .toList();
 
-    return StreamZip<List<FuelItem>>([
-      defaultFuelsStream,
-      userFuelsStream,
-    ]).map((lists) {
-      final defaults = lists[0];
-      final userFuels = lists[1];
-      return [...defaults, ...userFuels];
-    });
-  }
+
+    return [
+      ...defaultFuels,
+      ...userFuels,
+    ];
+  });
+}
 }
