@@ -72,6 +72,31 @@ class FuelService {
     });
   }
 
+    /// 🔹 Update a custom fuel (non-default).
+  Future<void> updateFuel({
+    required String fuelId,
+    required String name,
+    required String brand,
+    required int carbsPerServing,
+    required int caloriesPerServing,
+    required int sodiumMg,
+    String? notes,
+  }) async {
+    await _fuelsRef.doc(fuelId).update({
+      'name': name,
+      'brand': brand,
+      'carbsPerServing': carbsPerServing,
+      'caloriesPerServing': caloriesPerServing,
+      'sodiumMg': sodiumMg,
+      'notes': notes,
+    });
+  }
+
+  /// 🔹 Delete a custom fuel (non-default).
+  Future<void> deleteFuel(String fuelId) async {
+    await _fuelsRef.doc(fuelId).delete();
+  }
+
   Stream<List<FuelItem>> streamUserFuels(String userId) {
     final defaultFuelsStream = _fuelsRef
         .where('isDefault', isEqualTo: true)

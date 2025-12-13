@@ -5,10 +5,74 @@ import 'package:provider/provider.dart';
 import '../models/fuel_item.dart';
 import '../services/fuel_service.dart';
 import '../state/user_profile_notifier.dart';
-import 'add_fuel_screen.dart'; // 👈 NEW
+import 'add_fuel_screen.dart';
+import 'edit_fuel_screen.dart'; // 👈 NEW
 
 class FuelsLibraryScreen extends StatelessWidget {
   const FuelsLibraryScreen({super.key});
+
+  void _openAddFuel(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const AddFuelScreen(),
+      ),
+    );
+  }
+
+  void _openEditFuel(BuildContext context, FuelItem fuel) {
+    if (fuel.isDefault) return; // safety guard
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EditFuelScreen(fuel: fuel),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteFuel(BuildContext context, FuelItem fuel) async {
+    if (fuel.isDefault) return; // do not delete defaults
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete fuel'),
+          content: Text(
+            'Are you sure you want to delete "${fuel.name}"?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) return;
+
+    try {
+      await FuelService.instance.deleteFuel(fuel.id);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fuel deleted.')),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to delete fuel. Please try again.'),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,13 +147,22 @@ class FuelsLibraryScreen extends StatelessWidget {
                   '${fuel.caloriesPerServing} kcal • '
                   '${fuel.sodiumMg} mg sodium';
 
+              final isCustom = !fuel.isDefault;
+
               return Card(
                 elevation: 1,
                 child: ListTile(
                   title: Text(fuel.name),
                   subtitle: Text(subtitle),
-                  trailing: fuel.isDefault
-                      ? const Padding(
+                  onTap: isCustom ? () => _openEditFuel(context, fuel) : null,
+                  trailing: isCustom
+                      ? IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          tooltip: 'Delete fuel',
+                          onPressed: () =>
+                              _confirmDeleteFuel(context, fuel),
+                        )
+                      : const Padding(
                           padding: EdgeInsets.only(right: 4),
                           child: Text(
                             'Default',
@@ -98,9 +171,7 @@ class FuelsLibraryScreen extends StatelessWidget {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                        )
-                      : const Icon(Icons.edit, size: 18), // will hook later
-                  onTap: fuel.isDefault ? null : () {},
+                        ),
                 ),
               );
             },
@@ -108,13 +179,7 @@ class FuelsLibraryScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const AddFuelScreen(),
-            ),
-          );
-        },
+        onPressed: () => _openAddFuel(context),
         icon: const Icon(Icons.add),
         label: const Text('Add fuel'),
       ),
