@@ -1,53 +1,72 @@
-// lib/models/fuel_item.dart
-
-enum FuelItemType { drinkMix, gel, solid, other }
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FuelItem {
-  final String id; // e.g. 'maurten_320'
-  final String name; // e.g. 'Maurten 320'
-  final FuelItemType type;
+  final String id;
+  final String? userId; // null for default fuels
+  final String name;
+  final String brand;
+  final int carbsPerServing;     // grams
+  final int caloriesPerServing;  // kcal
+  final int sodiumMg;            // mg
+  final String? notes;
+  final bool isDefault;
 
-  /// Carbs per serving in grams
-  final int carbsPerServing;
-
-  /// Calories per serving (optional but useful)
-  final int? caloriesPerServing;
-
-  /// Optional: extra info like "500ml bottle" or "one bar"
-  final String? description;
-
-  const FuelItem({
+  FuelItem({
     required this.id,
+    required this.userId,
     required this.name,
-    required this.type,
+    required this.brand,
     required this.carbsPerServing,
-    this.caloriesPerServing,
-    this.description,
+    required this.caloriesPerServing,
+    required this.sodiumMg,
+    this.notes,
+    required this.isDefault,
   });
 
-  /// For saving later to Firestore if we want
-  Map<String, dynamic> toMap() {
+  /// Generic JSON for app/tests (not Firestore-specific)
+  Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'userId': userId,
       'name': name,
-      'type': type.name,
+      'brand': brand,
       'carbsPerServing': carbsPerServing,
       'caloriesPerServing': caloriesPerServing,
-      'description': description,
+      'sodiumMg': sodiumMg,
+      'notes': notes,
+      'isDefault': isDefault,
     };
   }
 
-  factory FuelItem.fromMap(Map<String, dynamic> map) {
+  factory FuelItem.fromJson(String id, Map<String, dynamic> json) {
     return FuelItem(
-      id: map['id'] as String,
-      name: map['name'] as String,
-      type: FuelItemType.values.firstWhere(
-        (t) => t.name == map['type'],
-        orElse: () => FuelItemType.other,
-      ),
-      carbsPerServing: map['carbsPerServing'] as int,
-      caloriesPerServing: map['caloriesPerServing'] as int?,
-      description: map['description'] as String?,
+      id: id,
+      userId: json['userId'] as String?,
+      name: json['name'] as String? ?? '',
+      brand: json['brand'] as String? ?? '',
+      carbsPerServing: (json['carbsPerServing'] ?? 0) as int,
+      caloriesPerServing: (json['caloriesPerServing'] ?? 0) as int,
+      sodiumMg: (json['sodiumMg'] ?? 0) as int,
+      notes: json['notes'] as String?,
+      isDefault: json['isDefault'] as bool? ?? false,
+    );
+  }
+
+  /// Firestore → FuelItem
+  factory FuelItem.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data() ?? {};
+
+    return FuelItem(
+      id: doc.id,
+      userId: data['userId'] as String?,
+      name: data['name'] as String? ?? '',
+      brand: data['brand'] as String? ?? '',
+      carbsPerServing: (data['carbsPerServing'] ?? 0) as int,
+      caloriesPerServing: (data['caloriesPerServing'] ?? 0) as int,
+      sodiumMg: (data['sodiumMg'] ?? 0) as int,
+      notes: data['notes'] as String?,
+      isDefault: data['isDefault'] as bool? ?? false,
     );
   }
 }
