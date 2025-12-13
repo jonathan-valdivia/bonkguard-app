@@ -50,6 +50,28 @@ class FuelService {
     await batch.commit();
   }
 
+   /// Create a custom fuel item for a specific user.
+  Future<void> createFuel({
+    required String userId,
+    required String name,
+    required String brand,
+    required int carbsPerServing,
+    required int caloriesPerServing,
+    required int sodiumMg,
+    String? notes,
+  }) async {
+    await _fuelsRef.add({
+      'userId': userId,
+      'name': name,
+      'brand': brand,
+      'carbsPerServing': carbsPerServing,
+      'caloriesPerServing': caloriesPerServing,
+      'sodiumMg': sodiumMg,
+      'notes': notes,
+      'isDefault': false,
+    });
+  }
+
   Stream<List<FuelItem>> streamUserFuels(String userId) {
     final defaultFuelsStream = _fuelsRef
         .where('isDefault', isEqualTo: true)

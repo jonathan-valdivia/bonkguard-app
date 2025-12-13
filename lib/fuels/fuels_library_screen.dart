@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/fuel_item.dart';
 import '../services/fuel_service.dart';
 import '../state/user_profile_notifier.dart';
+import 'add_fuel_screen.dart'; // 👈 NEW
 
 class FuelsLibraryScreen extends StatelessWidget {
   const FuelsLibraryScreen({super.key});
@@ -26,12 +27,10 @@ class FuelsLibraryScreen extends StatelessWidget {
       body: StreamBuilder<List<FuelItem>>(
         stream: FuelService.instance.streamUserFuels(profile.uid),
         builder: (context, snapshot) {
-          // Loading state
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Error state
           if (snapshot.hasError) {
             return Center(
               child: Padding(
@@ -47,7 +46,6 @@ class FuelsLibraryScreen extends StatelessWidget {
 
           final fuels = snapshot.data ?? [];
 
-          // Empty state
           if (fuels.isEmpty) {
             return Center(
               child: Padding(
@@ -72,7 +70,6 @@ class FuelsLibraryScreen extends StatelessWidget {
             );
           }
 
-          // List of fuels
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: fuels.length,
@@ -102,14 +99,24 @@ class FuelsLibraryScreen extends StatelessWidget {
                             ),
                           ),
                         )
-                      : const Icon(Icons.edit, size: 18), // placeholder for later
-                  // onTap will later open edit screen for custom fuels
+                      : const Icon(Icons.edit, size: 18), // will hook later
                   onTap: fuel.isDefault ? null : () {},
                 ),
               );
             },
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const AddFuelScreen(),
+            ),
+          );
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('Add fuel'),
       ),
     );
   }
