@@ -7,6 +7,7 @@ import '../models/user_profile.dart';
 import '../plans/my_plans_screen.dart';
 import '../settings/settings_page.dart';
 import '../state/user_profile_notifier.dart';
+import '../fuels/fuels_library_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,6 +41,12 @@ class _HomeScreenState extends State<HomeScreen> {
     ).push(MaterialPageRoute(builder: (_) => const MyPlansScreen()));
   }
 
+  void _openFuelsLibrary() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const FuelsLibraryScreen()));
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = context.watch<UserProfileNotifier>().profile;
@@ -55,14 +62,19 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const BonkGuardLogo(),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: 'Settings',
-            onPressed: _openSettings,
+            icon: const Icon(Icons.local_drink_outlined),
+            tooltip: 'Fuels library',
+            onPressed: _openFuelsLibrary,
           ),
           IconButton(
             icon: const Icon(Icons.list_alt),
             tooltip: 'My Plans',
             onPressed: _openMyPlans,
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
+            onPressed: _openSettings,
           ),
         ],
       ),
@@ -75,8 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // removed welcome message and question
-                const SizedBox(height: 24),
+                // 🧱 Plan Builder card
                 Card(
                   elevation: 2,
                   child: Padding(
@@ -106,6 +117,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // 📋 My Plans card
                 Card(
                   elevation: 2,
                   child: Padding(
@@ -128,6 +141,37 @@ class _HomeScreenState extends State<HomeScreen> {
                             onPressed: _openMyPlans,
                             icon: const Icon(Icons.list_alt),
                             label: const Text('View my plans'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 🧃 Fuels Library card
+                Card(
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Fuels library',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Browse default fuels and your custom gels, drinks, and snacks.',
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          height: 48,
+                          child: OutlinedButton.icon(
+                            onPressed: _openFuelsLibrary,
+                            icon: const Icon(Icons.local_drink_outlined),
+                            label: const Text('View fuels'),
                           ),
                         ),
                       ],
