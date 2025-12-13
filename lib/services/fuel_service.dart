@@ -3,15 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:async/async.dart';
 
 import '../models/fuel_item.dart';
+import '../data/default_fuels.dart'; 
 
 class FuelService {
   FuelService._internal(this._firestore);
 
-  // Normal singleton for the app
   static final FuelService instance =
       FuelService._internal(FirebaseFirestore.instance);
 
-  // Factory for tests (we can inject FakeFirebaseFirestore later)
   factory FuelService.forTests(FirebaseFirestore firestore) {
     return FuelService._internal(firestore);
   }
@@ -21,9 +20,36 @@ class FuelService {
   CollectionReference<Map<String, dynamic>> get _fuelsRef =>
       _firestore.collection('fuels');
 
-  /// Stream of fuels visible to this user:
-  /// - default fuels (isDefault == true)
-  /// - user-created fuels (userId == uid)
+  /// One-time seeding of default fuels.
+  /// Safe to call on every startup; it does nothing if defaults already exist.
+  Future<void> seedDefaultFuelsIfEmpty() async {
+    final existingDefaults = await _fuelsRef
+        .where('isDefault', isEqualTo: true)
+        .limit(1)
+        .get();
+
+    // If we already have at least one default fuel, assume seeding is done.
+    if (existingDefaults.docs.isNotEmpty) return;
+
+    final batch = _firestore.batch();
+
+    for (final fuel in DefaultFuels.all) {
+      final docRef = _fuelsRef.doc(fuel.id); // stable ids
+      batch.set(docRef, {
+        'userId': null,
+        'name': fuel.name,
+        'brand': fuel.brand,
+        'carbsPerServing': fuel.carbsPerServing,
+        'caloriesPerServing': fuel.caloriesPerServing,
+        'sodiumMg': fuel.sodiumMg,
+        'notes': fuel.notes,
+        'isDefault': true,
+      });
+    }
+
+    await batch.commit();
+  }
+
   Stream<List<FuelItem>> streamUserFuels(String userId) {
     final defaultFuelsStream = _fuelsRef
         .where('isDefault', isEqualTo: true)
@@ -41,7 +67,6 @@ class FuelService {
               snapshot.docs.map(FuelItem.fromFirestore).toList(),
         );
 
-    // Combine both streams into a single List<FuelItem>
     return StreamZip<List<FuelItem>>([
       defaultFuelsStream,
       userFuelsStream,

@@ -13,6 +13,7 @@ import 'app_theme.dart';
 import 'auth/auth_gate.dart';
 import 'state/user_profile_notifier.dart';
 import 'screens/create_plan_screen.dart';
+import 'services/fuel_service.dart';
 
 // firebase analytics instance
 final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
@@ -32,6 +33,10 @@ void main() {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
+
+      // Seed default fuels once
+      await FuelService.instance.seedDefaultFuelsIfEmpty();
+
 
       // Crashlytics setup: log all Flutter errors
       FlutterError.onError =
