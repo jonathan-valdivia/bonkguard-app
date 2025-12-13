@@ -7,6 +7,13 @@ class Plan {
   final String name;
   final int durationMinutes;
   final String patternType;
+
+  // 🔹 New fields for pattern support
+  final int? carbsPerHour;        // target carbs per hour for this plan
+  final int? intervalMinutes;     // e.g. 20 (fuel every 20 minutes)
+  final int? startOffsetMinutes;  // e.g. 20 (first fuel at minute 20)
+  final List<String>? patternFuelIds; // ordered list of FuelItem IDs: [A, B, C]
+
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -16,6 +23,10 @@ class Plan {
     required this.name,
     required this.durationMinutes,
     required this.patternType,
+    this.carbsPerHour,
+    this.intervalMinutes,
+    this.startOffsetMinutes,
+    this.patternFuelIds,
     this.createdAt,
     this.updatedAt,
   });
@@ -27,6 +38,10 @@ class Plan {
       'name': name,
       'durationMinutes': durationMinutes,
       'patternType': patternType,
+      'carbsPerHour': carbsPerHour,
+      'intervalMinutes': intervalMinutes,
+      'startOffsetMinutes': startOffsetMinutes,
+      'patternFuelIds': patternFuelIds,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -44,6 +59,11 @@ class Plan {
       name: json['name'] as String? ?? '',
       durationMinutes: (json['durationMinutes'] ?? 0) as int,
       patternType: json['patternType'] as String? ?? 'fixed',
+      carbsPerHour: json['carbsPerHour'] as int?,
+      intervalMinutes: json['intervalMinutes'] as int?,
+      startOffsetMinutes: json['startOffsetMinutes'] as int?,
+      patternFuelIds:
+          (json['patternFuelIds'] as List<dynamic>?)?.cast<String>(),
       createdAt: parseDate(json['createdAt'] as String?),
       updatedAt: parseDate(json['updatedAt'] as String?),
     );
@@ -61,6 +81,11 @@ class Plan {
       name: data['name'] as String? ?? '',
       durationMinutes: (data['durationMinutes'] ?? 0) as int,
       patternType: data['patternType'] as String? ?? 'fixed',
+      carbsPerHour: data['carbsPerHour'] as int?,
+      intervalMinutes: data['intervalMinutes'] as int?,
+      startOffsetMinutes: data['startOffsetMinutes'] as int?,
+      patternFuelIds:
+          (data['patternFuelIds'] as List<dynamic>?)?.cast<String>(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
