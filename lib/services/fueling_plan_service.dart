@@ -1,66 +1,70 @@
 // lib/services/fueling_plan_service.dart
-import 'package:uuid/uuid.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/fuel_item.dart';
-import '../models/fuel_event.dart';
 import '../models/fuel_plan.dart';
 
 class FuelingPlanService {
-  FuelingPlanService._();
+  FuelingPlanService._internal(this._firestore);
 
-  static final instance = FuelingPlanService._();
+  static final FuelingPlanService instance =
+      FuelingPlanService._internal(FirebaseFirestore.instance);
 
-  final _uuid = const Uuid();
-
-  final _firestore = FirebaseFirestore.instance;
-
-  CollectionReference<Map<String, dynamic>> _plansCollection(String userId) {
-    return _firestore.collection('users').doc(userId).collection('plans');
+  factory FuelingPlanService.forTests(FirebaseFirestore firestore) {
+    return FuelingPlanService._internal(firestore);
   }
 
-  /// Generate a fixed-pattern fueling plan:
-  ///
-  /// - patternItems: e.g. [A, B, C] will produce A → B → C → A → B → C...
-  /// - intervalMinutes: how often to fuel (e.g. every 20 minutes)
-  /// - startOffsetMinutes: first fueling event (e.g. at 20' into the ride)
+  final FirebaseFirestore _firestore;
+
+  CollectionReference<Map<String, dynamic>> get _plansRef =>
+      _firestore.collection('fuelingPlans');
+
+  /// Generate a fixed pattern fueling plan:
+  /// A → B → C → repeat, using FuelItem IDs only in events.
   FuelingPlan generateFixedPatternPlan({
     required String userId,
     required Duration rideDuration,
     required int targetCarbsPerHour,
     required List<FuelItem> patternItems,
-    int intervalMinutes = 20,
-    int startOffsetMinutes = 20,
+    required int intervalMinutes,
+    required int startOffsetMinutes,
     String? name,
   }) {
-    if (patternItems.isEmpty) {
-      throw ArgumentError('patternItems cannot be empty');
+    final events = <FuelingEvent>[];
+
+    final totalMinutes = rideDuration.inMinutes;
+    if (totalMinutes <= 0 || patternItems.isEmpty) {
+      return FuelingPlan(
+        id: '',
+        userId: userId,
+        rideDuration: rideDuration,
+        targetCarbsPerHour: targetCarbsPerHour,
+        events: events,
+        name: name,
+      );
     }
 
-    final events = <FuelEvent>[];
-    final totalMinutes = rideDuration.inMinutes;
+    var currentMinute = startOffsetMinutes;
+    var patternIndex = 0;
 
-    int minute = startOffsetMinutes;
-    int patternIndex = 0;
-
-    while (minute <= totalMinutes) {
-      final item = patternItems[patternIndex];
+    while (currentMinute <= totalMinutes) {
+      final fuel = patternItems[patternIndex % patternItems.length];
 
       events.add(
-        FuelEvent(minuteFromStart: minute, fuelItemId: item.id, servings: 1),
+        FuelingEvent(
+          minuteFromStart: currentMinute,
+          fuelItemId: fuel.id, // 🔹 store only the FuelItem ID
+          servings: 1,
+        ),
       );
 
-      // Move ahead in time
-      minute += intervalMinutes;
-
-      // Move to next item in pattern (A → B → C → A → ...)
-      patternIndex = (patternIndex + 1) % patternItems.length;
+      patternIndex += 1;
+      currentMinute += intervalMinutes;
     }
 
     return FuelingPlan(
-      id: _uuid.v4(), // temporary id, Firestore will give its own later
+      id: '',
       userId: userId,
-      createdAt: DateTime.now(),
       rideDuration: rideDuration,
       targetCarbsPerHour: targetCarbsPerHour,
       events: events,
@@ -68,23 +72,33 @@ class FuelingPlanService {
     );
   }
 
-  /// Save (or overwrite) a plan for a user.
-  ///
-  /// Uses plan.id as the document ID so the same plan can be updated later.
+  /// Save a fueling plan document to Firestore.
   Future<void> savePlan(FuelingPlan plan) async {
-    final plansRef = _plansCollection(plan.userId);
+    final data = {
+      'userId': plan.userId,
+      'name': plan.name,
+      'rideDurationMinutes': plan.rideDuration.inMinutes,
+      'targetCarbsPerHour': plan.targetCarbsPerHour,
+      'events': plan.events.map((e) => e.toJson()).toList(),
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
 
-    await plansRef.doc(plan.id).set(plan.toMap());
+    if (plan.id.isEmpty) {
+      await _plansRef.add(data);
+    } else {
+      await _plansRef.doc(plan.id).set(data, SetOptions(merge: true));
+    }
   }
 
-  /// Load all plans for a user (MVP: no paging, ordered by createdAt desc)
-  Future<List<FuelingPlan>> loadPlansForUser(String userId) async {
-    final querySnapshot = await _plansCollection(
-      userId,
-    ).orderBy('createdAt', descending: true).get();
-
-    return querySnapshot.docs
-        .map((doc) => FuelingPlan.fromMap(doc.id, doc.data()))
-        .toList();
+  /// Load all fueling plans for a user.
+  Stream<List<FuelingPlan>> userFuelingPlansStream(String userId) {
+    return _plansRef
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map(FuelingPlan.fromFirestore).toList(),
+        );
   }
 }

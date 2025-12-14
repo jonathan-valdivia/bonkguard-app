@@ -1,95 +1,122 @@
-// lib/models/fueling_plan.dart
+// lib/models/fuel_plan.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'fuel_event.dart';
 import 'fuel_item.dart';
 
+class FuelingEvent {
+  final int minuteFromStart;
+  final String fuelItemId;
+  final int servings;
+
+  FuelingEvent({
+    required this.minuteFromStart,
+    required this.fuelItemId,
+    required this.servings,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'minuteFromStart': minuteFromStart,
+      'fuelItemId': fuelItemId,
+      'servings': servings,
+    };
+  }
+
+  factory FuelingEvent.fromJson(Map<String, dynamic> json) {
+    return FuelingEvent(
+      minuteFromStart: (json['minuteFromStart'] ?? 0) as int,
+      fuelItemId: json['fuelItemId'] as String? ?? '',
+      servings: (json['servings'] ?? 1) as int,
+    );
+  }
+}
+
 class FuelingPlan {
-  final String id; // e.g. a Firestore doc id
+  final String id;
   final String userId;
-
-  final DateTime createdAt;
-
-  /// Length of the ride this plan is for
   final Duration rideDuration;
-
-  /// Target carbs per hour used to generate this plan
   final int targetCarbsPerHour;
-
-  /// The actual sequence of fuel events
-  final List<FuelEvent> events;
-
-  /// Optional name or label e.g. "Saturday Long Ride"
+  final List<FuelingEvent> events;
   final String? name;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   FuelingPlan({
     required this.id,
     required this.userId,
-    required this.createdAt,
     required this.rideDuration,
     required this.targetCarbsPerHour,
     required this.events,
     this.name,
+    this.createdAt,
+    this.updatedAt,
   });
 
-  /// Compute total carbs in the plan using the fuel library
-  ///
-  /// `fuelLibrary` is usually a Map from FuelItem.id → FuelItem
-  int totalCarbs(Map<String, FuelItem> fuelLibrary) {
-    int total = 0;
-    for (final event in events) {
-      final item = fuelLibrary[event.fuelItemId];
-      if (item == null) continue;
+  /// Calculate total carbs for the plan using provided FuelItems.
+  /// We rely ONLY on fuelItemId -> FuelItem mapping (no legacy FuelLibrary).
+  int totalCarbs(Iterable<FuelItem> fuels) {
+    final fuelById = {
+      for (final f in fuels) f.id: f,
+    };
 
-      total += item.carbsPerServing * event.servings;
+    var total = 0;
+    for (final event in events) {
+      final fuel = fuelById[event.fuelItemId];
+      if (fuel == null) continue;
+      total += fuel.carbsPerServing * event.servings;
     }
     return total;
   }
 
-  /// Compute total calories (if available)
-  int? totalCalories(Map<String, FuelItem> fuelLibrary) {
-    int total = 0;
-    bool hasAnyCalories = false;
+  /// Calculate total calories if we have calorie data.
+  int? totalCalories(Iterable<FuelItem> fuels) {
+    final fuelById = {
+      for (final f in fuels) f.id: f,
+    };
+
+    var total = 0;
+    var hasAny = false;
 
     for (final event in events) {
-      final item = fuelLibrary[event.fuelItemId];
-      if (item == null) continue;
-
-      final caloriesPerServing = item.caloriesPerServing;
-      if (caloriesPerServing == null) continue;
-
-      hasAnyCalories = true;
-      total += caloriesPerServing * event.servings;
+      final fuel = fuelById[event.fuelItemId];
+      if (fuel == null) continue;
+      hasAny = true;
+      total += fuel.caloriesPerServing * event.servings;
     }
 
-    if (!hasAnyCalories) return null;
-    return total;
+    return hasAny ? total : null;
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'userId': userId,
-      'createdAt': createdAt.toIso8601String(),
       'rideDurationMinutes': rideDuration.inMinutes,
       'targetCarbsPerHour': targetCarbsPerHour,
-      'events': events.map((e) => e.toMap()).toList(),
       'name': name,
+      'events': events.map((e) => e.toJson()).toList(),
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
     };
   }
 
-  factory FuelingPlan.fromMap(String id, Map<String, dynamic> map) {
-    final eventsList = (map['events'] as List<dynamic>? ?? [])
-        .cast<Map<String, dynamic>>()
-        .map((e) => FuelEvent.fromMap(e))
-        .toList();
+  factory FuelingPlan.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data() ?? {};
+    final eventsJson = (data['events'] as List<dynamic>? ?? [])
+        .cast<Map<String, dynamic>>();
 
     return FuelingPlan(
-      id: id,
-      userId: map['userId'] as String,
-      createdAt: DateTime.parse(map['createdAt'] as String),
-      rideDuration: Duration(minutes: map['rideDurationMinutes'] as int),
-      targetCarbsPerHour: map['targetCarbsPerHour'] as int,
-      events: eventsList,
-      name: map['name'] as String?,
+      id: doc.id,
+      userId: data['userId'] as String? ?? '',
+      name: data['name'] as String?,
+      rideDuration: Duration(
+        minutes: (data['rideDurationMinutes'] ?? 0) as int,
+      ),
+      targetCarbsPerHour: (data['targetCarbsPerHour'] ?? 0) as int,
+      events: eventsJson.map(FuelingEvent.fromJson).toList(),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
   }
 }

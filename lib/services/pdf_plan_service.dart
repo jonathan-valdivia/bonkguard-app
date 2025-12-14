@@ -6,7 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../models/fuel_plan.dart';
-import '../data/fuel_library.dart';
+
 
 class PdfPlanService {
   PdfPlanService._();
