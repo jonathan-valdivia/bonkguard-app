@@ -377,7 +377,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                         const SizedBox(height: 8),
 
                         DropdownButtonFormField<String>(
-                          value: _patternAId,
+                          initialValue: _patternAId,
                           items: fuelItems,
                           decoration: const InputDecoration(
                             labelText: 'Pattern A',
@@ -389,7 +389,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                         const SizedBox(height: 12),
 
                         DropdownButtonFormField<String>(
-                          value: _patternBId,
+                          initialValue: _patternBId,
                           items: fuelItems,
                           decoration: const InputDecoration(
                             labelText: 'Pattern B',
@@ -401,7 +401,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                         const SizedBox(height: 12),
 
                         DropdownButtonFormField<String>(
-                          value: _patternCId,
+                          initialValue: _patternCId,
                           items: fuelItems,
                           decoration: const InputDecoration(
                             labelText: 'Pattern C',
