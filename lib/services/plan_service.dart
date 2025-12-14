@@ -64,4 +64,27 @@ class PlanService {
   Future<void> deletePlan(String planId) async {
     await _plansRef.doc(planId).delete();
   }
+
+Future<void> migrateExistingPlansForUser(String userId) async {
+    final snapshot =
+        await _plansRef.where('userId', isEqualTo: userId).get();
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      final updates = <String, dynamic>{};
+
+      // Ensure patternType exists; fall back to 'fixed'
+      if (!data.containsKey('patternType') || data['patternType'] == null) {
+        updates['patternType'] = 'fixed';
+      }
+
+      // (We intentionally leave new fields like carbsPerHour, etc. null;
+      //  the Plan model already treats them as optional.)
+
+      if (updates.isNotEmpty) {
+        await doc.reference.update(updates);
+      }
+    }
+  }
+
 }

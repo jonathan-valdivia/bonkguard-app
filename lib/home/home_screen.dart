@@ -8,6 +8,8 @@ import '../plans/my_plans_screen.dart';
 import '../settings/settings_page.dart';
 import '../state/user_profile_notifier.dart';
 import '../fuels/fuels_library_screen.dart'; 
+import '../services/plan_service.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,6 +19,20 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool _hasMigratedPlans = false; // 👈 NEW
+
+  Future<void> _ensurePlansMigrated(String userId) async {
+    if (_hasMigratedPlans) return;
+    _hasMigratedPlans = true;
+
+    // Fire and forget; no need to block UI
+    try {
+      await PlanService.instance.migrateExistingPlansForUser(userId);
+    } catch (_) {
+      // For MVP we silently ignore migration errors; plans still load
+    }
+  }
+
   Future<void> _openSettings() async {
     final updatedProfile = await Navigator.of(context).push<UserProfile>(
       MaterialPageRoute(builder: (_) => const SettingsPage()),
@@ -56,6 +72,9 @@ class _HomeScreenState extends State<HomeScreen> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
+
+    // 👇 Kick off migration once for this user
+    _ensurePlansMigrated(profile.uid);
 
     return Scaffold(
       appBar: AppBar(
