@@ -1,69 +1,37 @@
-// lib/plans/my_plans_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/plan.dart';
-import '../screens/create_plan_screen.dart';
 import '../services/plan_service.dart';
 import '../state/user_profile_notifier.dart';
+import '../screens/create_plan_screen.dart';
 
 class MyPlansScreen extends StatelessWidget {
   const MyPlansScreen({super.key});
 
-  void _openCreatePlan(BuildContext context) {
-    Navigator.of(context).pushNamed('/create-plan');
-  }
+  String _buildSubtitle(Plan plan) {
+    final parts = <String>[];
 
-  void _openEditPlan(BuildContext context, Plan plan) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => CreatePlanScreen(initialPlan: plan),
-      ),
-    );
-  }
+    // Duration
+    parts.add('${plan.durationMinutes} min');
 
-  Future<void> _confirmDeletePlan(BuildContext context, Plan plan) async {
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Delete plan'),
-          content: Text(
-            'Are you sure you want to delete "${plan.name.isEmpty ? 'this plan' : plan.name}"?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldDelete != true) return;
-
-    try {
-      await PlanService.instance.deletePlan(plan.id);
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Plan deleted.')),
-        );
-      }
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to delete plan. Please try again.'),
-        ),
-      );
+    // Optional pattern metadata
+    if (plan.carbsPerHour != null) {
+      parts.add('${plan.carbsPerHour} g/hr');
     }
+
+    if (plan.intervalMinutes != null) {
+      parts.add('every ${plan.intervalMinutes}m');
+    }
+
+    if (plan.startOffsetMinutes != null) {
+      parts.add('start +${plan.startOffsetMinutes}m');
+    }
+
+    // Pattern type (fixed for now)
+    parts.add(plan.patternType);
+
+    return parts.join(' • ');
   }
 
   @override
@@ -89,9 +57,13 @@ class MyPlansScreen extends StatelessWidget {
 
           if (snapshot.hasError) {
             return Center(
-              child: Text(
-                'Failed to load plans.\nPlease try again later.',
-                textAlign: TextAlign.center,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Failed to load plans.\nPlease try again later.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
               ),
             );
           }
@@ -101,29 +73,20 @@ class MyPlansScreen extends StatelessWidget {
           if (plans.isEmpty) {
             return Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.note_alt_outlined,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
+                  children: const [
+                    Icon(Icons.list_alt_outlined, size: 48),
+                    SizedBox(height: 12),
+                    Text(
                       'No plans yet',
                       style: TextStyle(fontSize: 18),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
+                    SizedBox(height: 8),
+                    Text(
                       'Create your first fueling plan to get started.',
                       textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: () => _openCreatePlan(context),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Create plan'),
                     ),
                   ],
                 ),
@@ -137,21 +100,29 @@ class MyPlansScreen extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final plan = plans[index];
-              final name = plan.name.isEmpty ? 'Untitled plan' : plan.name;
-              final subtitle =
-                  'Duration: ${plan.durationMinutes} min • Pattern: ${plan.patternType}';
 
               return Card(
                 elevation: 1,
                 child: ListTile(
-                  title: Text(name),
-                  subtitle: Text(subtitle),
-                  onTap: () => _openEditPlan(context, plan),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    tooltip: 'Delete plan',
-                    onPressed: () => _confirmDeletePlan(context, plan),
+                  title: Text(
+                    plan.name.isEmpty ? 'Untitled plan' : plan.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  subtitle: Text(
+                    _buildSubtitle(plan),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            CreatePlanScreen(initialPlan: plan),
+                      ),
+                    );
+                  },
                 ),
               );
             },
@@ -159,9 +130,15 @@ class MyPlansScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openCreatePlan(context),
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const CreatePlanScreen(),
+            ),
+          );
+        },
         icon: const Icon(Icons.add),
-        label: const Text('Create plan'),
+        label: const Text('New plan'),
       ),
     );
   }
