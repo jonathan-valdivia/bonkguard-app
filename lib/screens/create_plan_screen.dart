@@ -21,8 +21,11 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
 
   late final TextEditingController _nameController;
   late final TextEditingController _durationController;
+  late final TextEditingController _carbsPerHourController;
+  late final TextEditingController _intervalMinutesController;
+  late final TextEditingController _startOffsetMinutesController;
 
-  // Pattern type fixed-only for MVP
+  // Fixed-only for MVP
   final String _patternType = 'fixed';
 
   // Selected fuel IDs (A/B/C)
@@ -39,11 +42,24 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     super.initState();
 
     final initial = widget.initialPlan;
-    _nameController = TextEditingController(text: initial?.name ?? '');
-    _durationController =
-        TextEditingController(text: (initial?.durationMinutes ?? '').toString());
 
-    // If editing and we already have saved patternFuelIds, prefill them
+    _nameController = TextEditingController(text: initial?.name ?? '');
+    _durationController = TextEditingController(
+      text: initial?.durationMinutes != null
+          ? initial!.durationMinutes.toString()
+          : '',
+    );
+
+    _carbsPerHourController = TextEditingController(
+      text: (initial?.carbsPerHour ?? 60).toString(),
+    );
+    _intervalMinutesController = TextEditingController(
+      text: (initial?.intervalMinutes ?? 20).toString(),
+    );
+    _startOffsetMinutesController = TextEditingController(
+      text: (initial?.startOffsetMinutes ?? 20).toString(),
+    );
+
     final ids = initial?.patternFuelIds;
     if (ids != null && ids.length >= 3) {
       _patternAId = ids[0];
@@ -56,87 +72,13 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   void dispose() {
     _nameController.dispose();
     _durationController.dispose();
+    _carbsPerHourController.dispose();
+    _intervalMinutesController.dispose();
+    _startOffsetMinutesController.dispose();
     super.dispose();
   }
 
-  Future<void> _onSavePressed() async {
-  final isValid = _formKey.currentState?.validate() ?? false;
-  if (!isValid) return;
-
-  if (_patternAId == null || _patternBId == null || _patternCId == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please select fuels for A, B, and C.')),
-    );
-    return;
-  }
-
-  if (_isSaving) return;
-
-  final profile = context.read<UserProfileNotifier>().profile;
-  if (profile == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('No profile loaded. Please sign out and sign in again.'),
-      ),
-    );
-    return;
-  }
-
-  final name = _nameController.text.trim();
-  final durationMinutes = int.parse(_durationController.text.trim());
-
-  final patternFuelIds = [
-    _patternAId!,
-    _patternBId!,
-    _patternCId!,
-  ];
-
-  setState(() => _isSaving = true);
-
-  try {
-    if (_isEditing) {
-      await PlanService.instance.updatePlan(
-        planId: widget.initialPlan!.id,
-        name: name,
-        durationMinutes: durationMinutes,
-        patternType: _patternType,
-        patternFuelIds: patternFuelIds,
-      );
-    } else {
-      await PlanService.instance.createPlan(
-        userId: profile.uid,
-        name: name,
-        durationMinutes: durationMinutes,
-        patternType: _patternType,
-        patternFuelIds: patternFuelIds,
-      );
-    }
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_isEditing ? 'Plan updated.' : 'Plan created.'),
-      ),
-    );
-
-    Navigator.of(context).pop();
-  } catch (e) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Failed to save plan. Please try again.'),
-      ),
-    );
-  } finally {
-    if (mounted) setState(() => _isSaving = false);
-  }
-}
-
-
   List<DropdownMenuItem<String>> _fuelDropdownItems(List<FuelItem> fuels) {
-    // Optional: sort defaults first, then alphabetical name
     final sorted = [...fuels]..sort((a, b) {
       if (a.isDefault != b.isDefault) {
         return a.isDefault ? -1 : 1;
@@ -146,7 +88,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
 
     return sorted
         .map(
-          (fuel) => DropdownMenuItem(
+          (fuel) => DropdownMenuItem<String>(
             value: fuel.id,
             child: Text(
               fuel.isDefault ? '${fuel.name} (Default)' : fuel.name,
@@ -155,6 +97,108 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
           ),
         )
         .toList();
+  }
+
+  void _ensureValidSelections(List<FuelItem> fuels) {
+    if (fuels.isEmpty) return;
+
+    bool exists(String? id) => id != null && fuels.any((f) => f.id == id);
+
+    // Only set defaults if not already set or invalid
+    if (!exists(_patternAId)) {
+      _patternAId = fuels.first.id;
+    }
+    if (!exists(_patternBId)) {
+      _patternBId = fuels.length > 1 ? fuels[1].id : fuels.first.id;
+    }
+    if (!exists(_patternCId)) {
+      _patternCId = fuels.length > 2 ? fuels[2].id : fuels.first.id;
+    }
+  }
+
+  Future<void> _onSavePressed() async {
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid) return;
+
+    if (_patternAId == null || _patternBId == null || _patternCId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select fuels for A, B, and C.')),
+      );
+      return;
+    }
+
+    final profile = context.read<UserProfileNotifier>().profile;
+    if (profile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No profile loaded. Please sign out and sign in again.'),
+        ),
+      );
+      return;
+    }
+
+    if (_isSaving) return;
+
+    final name = _nameController.text.trim();
+    final durationMinutes = int.parse(_durationController.text.trim());
+    final carbsPerHour = int.parse(_carbsPerHourController.text.trim());
+    final intervalMinutes = int.parse(_intervalMinutesController.text.trim());
+    final startOffsetMinutes =
+        int.parse(_startOffsetMinutesController.text.trim());
+
+    final patternFuelIds = [
+      _patternAId!,
+      _patternBId!,
+      _patternCId!,
+    ];
+
+    setState(() => _isSaving = true);
+
+    try {
+      if (_isEditing) {
+        await PlanService.instance.updatePlan(
+          planId: widget.initialPlan!.id,
+          name: name,
+          durationMinutes: durationMinutes,
+          patternType: _patternType,
+          patternFuelIds: patternFuelIds,
+          carbsPerHour: carbsPerHour,
+          intervalMinutes: intervalMinutes,
+          startOffsetMinutes: startOffsetMinutes,
+        );
+      } else {
+        await PlanService.instance.createPlan(
+          userId: profile.uid,
+          name: name,
+          durationMinutes: durationMinutes,
+          patternType: _patternType,
+          patternFuelIds: patternFuelIds,
+          carbsPerHour: carbsPerHour,
+          intervalMinutes: intervalMinutes,
+          startOffsetMinutes: startOffsetMinutes,
+        );
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isEditing ? 'Plan updated.' : 'Plan created.'),
+        ),
+      );
+
+      Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save plan. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -213,12 +257,10 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                   );
                 }
 
-                final fuelItems = _fuelDropdownItems(fuels);
+                // Ensure dropdown selections always point to valid IDs
+                _ensureValidSelections(fuels);
 
-                // If selections are null (new screen) choose sensible defaults
-                _patternAId ??= fuels.first.id;
-                _patternBId ??= fuels.length > 1 ? fuels[1].id : fuels.first.id;
-                _patternCId ??= fuels.length > 2 ? fuels[2].id : fuels.first.id;
+                final fuelItems = _fuelDropdownItems(fuels);
 
                 return Padding(
                   padding: const EdgeInsets.all(16),
@@ -240,6 +282,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
+
                         TextFormField(
                           controller: _durationController,
                           decoration: const InputDecoration(
@@ -258,8 +301,75 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
 
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _carbsPerHourController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Target carbs/hour (g)',
+                                  hintText: 'e.g. 80',
+                                ),
+                                keyboardType: TextInputType.number,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Required';
+                                  }
+                                  final parsed = int.tryParse(value.trim());
+                                  if (parsed == null || parsed <= 0) {
+                                    return 'Must be > 0';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _intervalMinutesController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Interval (min)',
+                                  hintText: 'e.g. 20',
+                                ),
+                                keyboardType: TextInputType.number,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Required';
+                                  }
+                                  final parsed = int.tryParse(value.trim());
+                                  if (parsed == null || parsed <= 0) {
+                                    return 'Must be > 0';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        TextFormField(
+                          controller: _startOffsetMinutesController,
+                          decoration: const InputDecoration(
+                            labelText: 'Start offset (min)',
+                            hintText: 'e.g. 20',
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Required';
+                            }
+                            final parsed = int.tryParse(value.trim());
+                            if (parsed == null || parsed < 0) {
+                              return 'Must be 0 or more';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        const SizedBox(height: 24),
                         Text(
                           'Fuel pattern (A → B → C → repeat)',
                           style: Theme.of(context).textTheme.titleMedium,
@@ -277,6 +387,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                           },
                         ),
                         const SizedBox(height: 12),
+
                         DropdownButtonFormField<String>(
                           value: _patternBId,
                           items: fuelItems,
@@ -288,6 +399,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                           },
                         ),
                         const SizedBox(height: 12),
+
                         DropdownButtonFormField<String>(
                           value: _patternCId,
                           items: fuelItems,
