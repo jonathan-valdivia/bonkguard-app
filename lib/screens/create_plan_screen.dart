@@ -60,67 +60,80 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   }
 
   Future<void> _onSavePressed() async {
-    final isValid = _formKey.currentState?.validate() ?? false;
-    if (!isValid) return;
+  final isValid = _formKey.currentState?.validate() ?? false;
+  if (!isValid) return;
 
-    // For BG-192 we’re loading fuels + selecting them;
-    // Saving the fuel IDs into the plan doc is BG-193/194,
-    // but it’s safe to require selection now to prevent half-baked plans.
-    if (_patternAId == null || _patternBId == null || _patternCId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select fuels for A, B, and C.')),
-      );
-      return;
-    }
-
-    if (_isSaving) return;
-
-    final profile = context.read<UserProfileNotifier>().profile;
-    if (profile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No profile loaded. Please sign out and sign in again.'),
-        ),
-      );
-      return;
-    }
-
-    final name = _nameController.text.trim();
-    final durationMinutes = int.parse(_durationController.text.trim());
-
-    setState(() => _isSaving = true);
-
-    try {
-      if (_isEditing) {
-        await PlanService.instance.updatePlan(
-          planId: widget.initialPlan!.id,
-          name: name,
-          durationMinutes: durationMinutes,
-          patternType: _patternType,
-        );
-      } else {
-        await PlanService.instance.createPlan(
-          userId: profile.uid,
-          name: name,
-          durationMinutes: durationMinutes,
-          patternType: _patternType,
-        );
-      }
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isEditing ? 'Plan updated.' : 'Plan created.')),
-      );
-      Navigator.of(context).pop();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to save plan. Please try again.')),
-      );
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
+  if (_patternAId == null || _patternBId == null || _patternCId == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please select fuels for A, B, and C.')),
+    );
+    return;
   }
+
+  if (_isSaving) return;
+
+  final profile = context.read<UserProfileNotifier>().profile;
+  if (profile == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('No profile loaded. Please sign out and sign in again.'),
+      ),
+    );
+    return;
+  }
+
+  final name = _nameController.text.trim();
+  final durationMinutes = int.parse(_durationController.text.trim());
+
+  final patternFuelIds = [
+    _patternAId!,
+    _patternBId!,
+    _patternCId!,
+  ];
+
+  setState(() => _isSaving = true);
+
+  try {
+    if (_isEditing) {
+      await PlanService.instance.updatePlan(
+        planId: widget.initialPlan!.id,
+        name: name,
+        durationMinutes: durationMinutes,
+        patternType: _patternType,
+        patternFuelIds: patternFuelIds,
+      );
+    } else {
+      await PlanService.instance.createPlan(
+        userId: profile.uid,
+        name: name,
+        durationMinutes: durationMinutes,
+        patternType: _patternType,
+        patternFuelIds: patternFuelIds,
+      );
+    }
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_isEditing ? 'Plan updated.' : 'Plan created.'),
+      ),
+    );
+
+    Navigator.of(context).pop();
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Failed to save plan. Please try again.'),
+      ),
+    );
+  } finally {
+    if (mounted) setState(() => _isSaving = false);
+  }
+}
+
 
   List<DropdownMenuItem<String>> _fuelDropdownItems(List<FuelItem> fuels) {
     // Optional: sort defaults first, then alphabetical name

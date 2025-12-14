@@ -22,20 +22,29 @@ class PlanService {
       _firestore.collection('plans');
 
   Future<void> createPlan({
-    required String userId,
-    required String name,
-    required int durationMinutes,
-    required String patternType,
-  }) async {
-    await _plansRef.add({
-      'userId': userId,
-      'name': name,
-      'durationMinutes': durationMinutes,
-      'patternType': patternType,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
+  required String userId,
+  required String name,
+  required int durationMinutes,
+  required String patternType,
+  required List<String> patternFuelIds,
+  int intervalMinutes = 20,
+  int startOffsetMinutes = 20,
+  int? carbsPerHour,
+}) async {
+  await _plansRef.add({
+    'userId': userId,
+    'name': name,
+    'durationMinutes': durationMinutes,
+    'patternType': patternType,
+    'patternFuelIds': patternFuelIds,
+    'intervalMinutes': intervalMinutes,
+    'startOffsetMinutes': startOffsetMinutes,
+    'carbsPerHour': carbsPerHour,
+    'createdAt': FieldValue.serverTimestamp(),
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
+}
+
 
   Stream<List<Plan>> userPlansStream(String userId) {
     return _plansRef
@@ -48,18 +57,27 @@ class PlanService {
   }
 
   Future<void> updatePlan({
-    required String planId,
-    required String name,
-    required int durationMinutes,
-    required String patternType,
-  }) async {
-    await _plansRef.doc(planId).update({
-      'name': name,
-      'durationMinutes': durationMinutes,
-      'patternType': patternType,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
+  required String planId,
+  required String name,
+  required int durationMinutes,
+  required String patternType,
+  required List<String> patternFuelIds,
+  int intervalMinutes = 20,
+  int startOffsetMinutes = 20,
+  int? carbsPerHour,
+}) async {
+  await _plansRef.doc(planId).update({
+    'name': name,
+    'durationMinutes': durationMinutes,
+    'patternType': patternType,
+    'patternFuelIds': patternFuelIds,
+    'intervalMinutes': intervalMinutes,
+    'startOffsetMinutes': startOffsetMinutes,
+    'carbsPerHour': carbsPerHour,
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
+}
+
 
   Future<void> deletePlan(String planId) async {
     await _plansRef.doc(planId).delete();
