@@ -5,6 +5,8 @@ import '../models/plan.dart';
 import '../services/plan_service.dart';
 import '../state/user_profile_notifier.dart';
 import '../screens/create_plan_screen.dart';
+import 'plan_timeline_screen.dart';
+
 
 class MyPlansScreen extends StatelessWidget {
   const MyPlansScreen({super.key});
@@ -114,15 +116,18 @@ class MyPlansScreen extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            CreatePlanScreen(initialPlan: plan),
-                      ),
-                    );
-                  },
+                  trailing: IconButton(
+  icon: const Icon(Icons.timeline),
+  tooltip: 'View timeline',
+  onPressed: () {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PlanTimelineScreen(plan: plan),
+      ),
+    );
+  },
+),
+
                 ),
               );
             },
