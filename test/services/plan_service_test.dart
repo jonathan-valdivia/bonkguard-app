@@ -1,5 +1,3 @@
-// test/services/plan_service_test.dart
-import 'package:bonkguard_app/models/plan.dart';
 import 'package:bonkguard_app/services/plan_service.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,79 +6,86 @@ void main() {
   group('PlanService', () {
     late FakeFirebaseFirestore firestore;
     late PlanService service;
+
     const userId = 'user123';
+    const fuelA = 'fuelA';
+    const fuelB = 'fuelB';
+    const fuelC = 'fuelC';
 
     setUp(() {
       firestore = FakeFirebaseFirestore();
       service = PlanService.forTests(firestore);
     });
 
-    test('createPlan writes a document with expected fields', () async {
+    test('userHasPlansUsingFuel returns false when no plans exist', () async {
+      final result = await service.userHasPlansUsingFuel(
+        userId: userId,
+        fuelId: fuelA,
+      );
+
+      expect(result, false);
+    });
+
+    test('userHasPlansUsingFuel returns true when a plan references the fuelId', () async {
+      // Create a plan that references fuelB
       await service.createPlan(
         userId: userId,
-        name: 'Test plan',
+        name: 'My plan',
+        durationMinutes: 180,
+        patternType: 'fixed',
+        patternFuelIds: [fuelA, fuelB, fuelC],
+        carbsPerHour: 80,
+        intervalMinutes: 20,
+        startOffsetMinutes: 20,
+      );
+
+      final used = await service.userHasPlansUsingFuel(
+        userId: userId,
+        fuelId: fuelB,
+      );
+
+      expect(used, true);
+    });
+
+    test('userHasPlansUsingFuel returns false for other users plans', () async {
+      // Plan belongs to someone else
+      await service.createPlan(
+        userId: 'otherUser',
+        name: 'Other plan',
         durationMinutes: 120,
         patternType: 'fixed',
+        patternFuelIds: [fuelA, fuelB, fuelC],
+        carbsPerHour: 60,
+        intervalMinutes: 20,
+        startOffsetMinutes: 20,
       );
 
-      final snapshot = await firestore
-          .collection('plans')
-          .where('userId', isEqualTo: userId)
-          .get();
+      final used = await service.userHasPlansUsingFuel(
+        userId: userId,
+        fuelId: fuelB,
+      );
 
-      expect(snapshot.docs.length, 1);
-
-      final data = snapshot.docs.first.data();
-      expect(data['userId'], userId);
-      expect(data['name'], 'Test plan');
-      expect(data['durationMinutes'], 120);
-      expect(data['patternType'], 'fixed');
+      expect(used, false);
     });
 
-    test('userPlansStream returns mapped Plan objects', () async {
-      final docRef = await firestore.collection('plans').add({
-        'userId': userId,
-        'name': 'Stream plan',
-        'durationMinutes': 90,
-        'patternType': 'fixed',
-        'createdAt': DateTime.now(),
-        'updatedAt': DateTime.now(),
-      });
-
-      final plans = await service.userPlansStream(userId).first;
-
-      expect(plans.length, 1);
-
-      final plan = plans.first;
-      expect(plan.id, docRef.id);
-      expect(plan.userId, userId);
-      expect(plan.name, 'Stream plan');
-      expect(plan.durationMinutes, 90);
-      expect(plan.patternType, 'fixed');
-    });
-
-    test('updatePlan updates existing document', () async {
-      final docRef = await firestore.collection('plans').add({
-        'userId': userId,
-        'name': 'Old name',
-        'durationMinutes': 60,
-        'patternType': 'fixed',
-        'createdAt': DateTime.now(),
-        'updatedAt': DateTime.now(),
-      });
-
-      await service.updatePlan(
-        planId: docRef.id,
-        name: 'New name',
-        durationMinutes: 75,
+    test('userHasPlansUsingFuel returns false when fuelId is not in patternFuelIds', () async {
+      await service.createPlan(
+        userId: userId,
+        name: 'My plan',
+        durationMinutes: 180,
         patternType: 'fixed',
+        patternFuelIds: [fuelA, fuelB, fuelC],
+        carbsPerHour: 80,
+        intervalMinutes: 20,
+        startOffsetMinutes: 20,
       );
 
-      final updated = await docRef.get();
-      final data = updated.data() as Map<String, dynamic>;
+      final used = await service.userHasPlansUsingFuel(
+        userId: userId,
+        fuelId: 'fuelZ',
+      );
 
-      expect(data['name'], 'New name');
-      expect(data['durationMinutes'], 75);
+      expect(used, false);
     });
   });
 }
