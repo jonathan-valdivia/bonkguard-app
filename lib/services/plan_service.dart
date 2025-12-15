@@ -83,6 +83,20 @@ class PlanService {
     await _plansRef.doc(planId).delete();
   }
 
+  Future<bool> userHasPlansUsingFuel({
+  required String userId,
+  required String fuelId,
+}) async {
+  final snapshot = await _plansRef
+      .where('userId', isEqualTo: userId)
+      .where('patternFuelIds', arrayContains: fuelId)
+      .limit(1)
+      .get();
+
+  return snapshot.docs.isNotEmpty;
+}
+
+
 Future<void> migrateExistingPlansForUser(String userId) async {
     final snapshot =
         await _plansRef.where('userId', isEqualTo: userId).get();

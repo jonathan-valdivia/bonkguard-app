@@ -6,7 +6,9 @@ import '../models/fuel_item.dart';
 import '../services/fuel_service.dart';
 import '../state/user_profile_notifier.dart';
 import 'add_fuel_screen.dart';
-import 'edit_fuel_screen.dart'; // 👈 NEW
+import 'edit_fuel_screen.dart'; 
+import '../services/plan_service.dart';
+
 
 class FuelsLibraryScreen extends StatelessWidget {
   const FuelsLibraryScreen({super.key});
@@ -28,51 +30,82 @@ class FuelsLibraryScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDeleteFuel(BuildContext context, FuelItem fuel) async {
-    if (fuel.isDefault) return; // do not delete defaults
+  Future<void> _confirmDeleteFuel(
+  BuildContext context,
+  String userId,
+  FuelItem fuel,
+) async {
+  if (fuel.isDefault) return;
 
-    final shouldDelete = await showDialog<bool>(
+  // ✅ Safety check: is fuel used in any plan?
+  final isUsed = await PlanService.instance.userHasPlansUsingFuel(
+    userId: userId,
+    fuelId: fuel.id,
+  );
+
+  if (isUsed) {
+    if (!context.mounted) return;
+
+    await showDialog<void>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Delete fuel'),
+          title: const Text('Cannot delete fuel'),
           content: Text(
-            'Are you sure you want to delete "${fuel.name}"?',
+            '"${fuel.name}" is used in one or more of your plans.\n\n'
+            'Edit those plans to remove it first, then delete the fuel.',
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
             ),
           ],
         );
       },
     );
+    return;
+  }
 
-    if (shouldDelete != true) return;
+  final shouldDelete = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Delete fuel'),
+        content: Text('Are you sure you want to delete "${fuel.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
 
-    try {
-      await FuelService.instance.deleteFuel(fuel.id);
+  if (shouldDelete != true) return;
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Fuel deleted.')),
-        );
-      }
-    } catch (e) {
-      if (!context.mounted) return;
+  try {
+    await FuelService.instance.deleteFuel(fuel.id);
+
+    if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to delete fuel. Please try again.'),
-        ),
+        const SnackBar(content: Text('Fuel deleted.')),
       );
     }
+  } catch (_) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Failed to delete fuel. Please try again.')),
+    );
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -159,8 +192,8 @@ class FuelsLibraryScreen extends StatelessWidget {
                       ? IconButton(
                           icon: const Icon(Icons.delete_outline),
                           tooltip: 'Delete fuel',
-                          onPressed: () =>
-                              _confirmDeleteFuel(context, fuel),
+                          onPressed: () => _confirmDeleteFuel(context, profile.uid, fuel)
+,
                         )
                       : const Padding(
                           padding: EdgeInsets.only(right: 4),
