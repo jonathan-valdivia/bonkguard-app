@@ -7,33 +7,76 @@ import '../state/user_profile_notifier.dart';
 import '../screens/create_plan_screen.dart';
 import 'plan_timeline_screen.dart';
 
-
 class MyPlansScreen extends StatelessWidget {
   const MyPlansScreen({super.key});
 
   String _buildSubtitle(Plan plan) {
     final parts = <String>[];
 
-    // Duration
     parts.add('${plan.durationMinutes} min');
 
-    // Optional pattern metadata
-    if (plan.carbsPerHour != null) {
-      parts.add('${plan.carbsPerHour} g/hr');
-    }
+    if (plan.carbsPerHour != null) parts.add('${plan.carbsPerHour} g/hr');
+    if (plan.intervalMinutes != null) parts.add('every ${plan.intervalMinutes}m');
+    if (plan.startOffsetMinutes != null) parts.add('start +${plan.startOffsetMinutes}m');
 
-    if (plan.intervalMinutes != null) {
-      parts.add('every ${plan.intervalMinutes}m');
-    }
-
-    if (plan.startOffsetMinutes != null) {
-      parts.add('start +${plan.startOffsetMinutes}m');
-    }
-
-    // Pattern type (fixed for now)
     parts.add(plan.patternType);
 
     return parts.join(' • ');
+  }
+
+  Future<void> _confirmDeletePlan({
+    required BuildContext context,
+    required Plan plan,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete plan'),
+          content: Text('Are you sure you want to delete "${plan.name}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) return;
+
+    try {
+      await PlanService.instance.deletePlan(plan.id);
+      messenger.showSnackBar(const SnackBar(content: Text('Plan deleted.')));
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Failed to delete plan. Please try again.')),
+      );
+    }
+  }
+
+  void _openEdit(BuildContext context, Plan plan) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CreatePlanScreen(initialPlan: plan),
+      ),
+    );
+  }
+
+  void _openTimeline(BuildContext context, Plan plan) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PlanTimelineScreen(plan: plan),
+      ),
+    );
   }
 
   @override
@@ -41,9 +84,7 @@ class MyPlansScreen extends StatelessWidget {
     final profile = context.watch<UserProfileNotifier>().profile;
 
     if (profile == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -73,18 +114,15 @@ class MyPlansScreen extends StatelessWidget {
           final plans = snapshot.data ?? [];
 
           if (plans.isEmpty) {
-            return Center(
+            return const Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
+                  children: [
                     Icon(Icons.list_alt_outlined, size: 48),
                     SizedBox(height: 12),
-                    Text(
-                      'No plans yet',
-                      style: TextStyle(fontSize: 18),
-                    ),
+                    Text('No plans yet', style: TextStyle(fontSize: 18)),
                     SizedBox(height: 8),
                     Text(
                       'Create your first fueling plan to get started.',
@@ -116,18 +154,49 @@ class MyPlansScreen extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.timeline),
-                    tooltip: 'View timeline',
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => PlanTimelineScreen(plan: plan),
-                        ),
-                      );
-                    },
-                  ),
+                  // ✅ Tap row = Edit (restored)
+                  onTap: () => _openEdit(context, plan),
 
+                  // ✅ Overflow menu for View/Edit/Delete
+                  trailing: PopupMenuButton<String>(
+                    tooltip: 'Plan actions',
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'timeline':
+                          _openTimeline(context, plan);
+                          break;
+                        case 'edit':
+                          _openEdit(context, plan);
+                          break;
+                        case 'delete':
+                          _confirmDeletePlan(context: context, plan: plan);
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'timeline',
+                        child: ListTile(
+                          leading: Icon(Icons.timeline),
+                          title: Text('View timeline'),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: ListTile(
+                          leading: Icon(Icons.edit),
+                          title: Text('Edit'),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: ListTile(
+                          leading: Icon(Icons.delete_outline),
+                          title: Text('Delete'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -137,9 +206,7 @@ class MyPlansScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const CreatePlanScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const CreatePlanScreen()),
           );
         },
         icon: const Icon(Icons.add),
