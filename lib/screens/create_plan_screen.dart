@@ -9,7 +9,6 @@ import '../state/user_profile_notifier.dart';
 import '../services/fueling_plan_service.dart';
 import '../models/fuel_plan.dart';
 
-
 class CreatePlanScreen extends StatefulWidget {
   final Plan? initialPlan;
 
@@ -210,6 +209,29 @@ void _buildPreview(List<FuelItem> fuels, String userId) {
       _patternCId!,
     ];
 
+    // Build FuelItem objects for A/B/C from current fuels stream data
+final fuels = await FuelService.instance.streamUserFuels(profile.uid).first;
+FuelItem findFuel(String id) => fuels.firstWhere((f) => f.id == id);
+
+final a = findFuel(_patternAId!);
+final b = findFuel(_patternBId!);
+final c = findFuel(_patternCId!);
+
+final generated = FuelingPlanService.instance.generateFixedPatternPlan(
+  userId: profile.uid,
+  rideDuration: Duration(minutes: durationMinutes),
+  targetCarbsPerHour: carbsPerHour,
+  patternItems: [a, b, c],
+  intervalMinutes: intervalMinutes,
+  startOffsetMinutes: startOffsetMinutes,
+  name: name,
+);
+
+// Convert to Firestore-friendly maps
+final generatedEvents =
+    generated.events.map((e) => e.toJson()).toList();
+
+
     setState(() => _isSaving = true);
 
     try {
@@ -223,6 +245,7 @@ void _buildPreview(List<FuelItem> fuels, String userId) {
           carbsPerHour: carbsPerHour,
           intervalMinutes: intervalMinutes,
           startOffsetMinutes: startOffsetMinutes,
+          events: generatedEvents,
         );
       } else {
         await PlanService.instance.createPlan(
@@ -234,6 +257,7 @@ void _buildPreview(List<FuelItem> fuels, String userId) {
           carbsPerHour: carbsPerHour,
           intervalMinutes: intervalMinutes,
           startOffsetMinutes: startOffsetMinutes,
+          events: generatedEvents,
         );
       }
 

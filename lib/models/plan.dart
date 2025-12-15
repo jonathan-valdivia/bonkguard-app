@@ -1,6 +1,34 @@
 // lib/models/plan.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+class PlanEvent {
+  final int minuteFromStart;
+  final String fuelItemId;
+  final int servings;
+
+  PlanEvent({
+    required this.minuteFromStart,
+    required this.fuelItemId,
+    required this.servings,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'minuteFromStart': minuteFromStart,
+      'fuelItemId': fuelItemId,
+      'servings': servings,
+    };
+  }
+
+  factory PlanEvent.fromJson(Map<String, dynamic> json) {
+    return PlanEvent(
+      minuteFromStart: (json['minuteFromStart'] ?? 0) as int,
+      fuelItemId: json['fuelItemId'] as String? ?? '',
+      servings: (json['servings'] ?? 1) as int,
+    );
+  }
+}
+
 class Plan {
   final String id;
   final String userId;
@@ -8,11 +36,13 @@ class Plan {
   final int durationMinutes;
   final String patternType;
 
-  // 🔹 New fields for pattern support
-  final int? carbsPerHour;        // target carbs per hour for this plan
-  final int? intervalMinutes;     // e.g. 20 (fuel every 20 minutes)
-  final int? startOffsetMinutes;  // e.g. 20 (first fuel at minute 20)
-  final List<String>? patternFuelIds; // ordered list of FuelItem IDs: [A, B, C]
+  final int? carbsPerHour;
+  final int? intervalMinutes;
+  final int? startOffsetMinutes;
+  final List<String>? patternFuelIds;
+
+  // ✅ NEW: generated fueling events persisted on the plan doc
+  final List<PlanEvent>? events;
 
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -27,11 +57,11 @@ class Plan {
     this.intervalMinutes,
     this.startOffsetMinutes,
     this.patternFuelIds,
+    this.events,
     this.createdAt,
     this.updatedAt,
   });
 
-  /// Domain JSON (not Firestore-specific) – useful for tests / local storage
   Map<String, dynamic> toJson() {
     return {
       'userId': userId,
@@ -42,6 +72,7 @@ class Plan {
       'intervalMinutes': intervalMinutes,
       'startOffsetMinutes': startOffsetMinutes,
       'patternFuelIds': patternFuelIds,
+      'events': events?.map((e) => e.toJson()).toList(),
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -52,6 +83,9 @@ class Plan {
       if (value == null) return null;
       return DateTime.parse(value);
     }
+
+    final eventsJson = (json['events'] as List<dynamic>?)
+        ?.cast<Map<String, dynamic>>();
 
     return Plan(
       id: id,
@@ -64,16 +98,19 @@ class Plan {
       startOffsetMinutes: json['startOffsetMinutes'] as int?,
       patternFuelIds:
           (json['patternFuelIds'] as List<dynamic>?)?.cast<String>(),
+      events: eventsJson?.map(PlanEvent.fromJson).toList(),
       createdAt: parseDate(json['createdAt'] as String?),
       updatedAt: parseDate(json['updatedAt'] as String?),
     );
   }
 
-  /// Firestore-specific factory
   factory Plan.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
   ) {
     final data = doc.data() ?? {};
+
+    final eventsJson = (data['events'] as List<dynamic>?)
+        ?.cast<Map<String, dynamic>>();
 
     return Plan(
       id: doc.id,
@@ -86,6 +123,7 @@ class Plan {
       startOffsetMinutes: data['startOffsetMinutes'] as int?,
       patternFuelIds:
           (data['patternFuelIds'] as List<dynamic>?)?.cast<String>(),
+      events: eventsJson?.map(PlanEvent.fromJson).toList(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );

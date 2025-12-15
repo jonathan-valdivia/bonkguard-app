@@ -21,7 +21,7 @@ class PlanService {
   CollectionReference<Map<String, dynamic>> get _plansRef =>
       _firestore.collection('plans');
 
-  Future<void> createPlan({
+  Future<DocumentReference<Map<String, dynamic>>> createPlan({
   required String userId,
   required String name,
   required int durationMinutes,
@@ -30,8 +30,9 @@ class PlanService {
   int intervalMinutes = 20,
   int startOffsetMinutes = 20,
   int? carbsPerHour,
+  List<Map<String, dynamic>>? events,
 }) async {
-  await _plansRef.add({
+  return await _plansRef.add({
     'userId': userId,
     'name': name,
     'durationMinutes': durationMinutes,
@@ -40,10 +41,12 @@ class PlanService {
     'intervalMinutes': intervalMinutes,
     'startOffsetMinutes': startOffsetMinutes,
     'carbsPerHour': carbsPerHour,
+    'events': events,
     'createdAt': FieldValue.serverTimestamp(),
     'updatedAt': FieldValue.serverTimestamp(),
   });
 }
+
 
 
   Stream<List<Plan>> userPlansStream(String userId) {
@@ -65,6 +68,7 @@ class PlanService {
   int intervalMinutes = 20,
   int startOffsetMinutes = 20,
   int? carbsPerHour,
+  List<Map<String, dynamic>>? events,
 }) async {
   await _plansRef.doc(planId).update({
     'name': name,
@@ -74,14 +78,29 @@ class PlanService {
     'intervalMinutes': intervalMinutes,
     'startOffsetMinutes': startOffsetMinutes,
     'carbsPerHour': carbsPerHour,
+    'events': events,
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
+}
+
+Future<void> saveGeneratedEvents({
+  required String planId,
+  required List<Map<String, dynamic>> events,
+}) async {
+  await _plansRef.doc(planId).update({
+    'events': events,
     'updatedAt': FieldValue.serverTimestamp(),
   });
 }
 
 
+
+
   Future<void> deletePlan(String planId) async {
     await _plansRef.doc(planId).delete();
   }
+
+  
 
   Future<bool> userHasPlansUsingFuel({
   required String userId,
