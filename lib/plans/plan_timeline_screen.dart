@@ -53,6 +53,36 @@ class _PlanTimelineScreenState extends State<PlanTimelineScreen> {
     }
   }
 
+  Future<void> _exportStemCard({
+  required Map<String, FuelItem> fuelById,
+}) async {
+  if (_isExportingPdf) return;
+
+  final messenger = ScaffoldMessenger.of(context);
+
+  setState(() => _isExportingPdf = true);
+
+  try {
+    final bytes = await PlanPdfService.instance.buildStemCardPdf(
+      plan: widget.plan,
+      fuelById: fuelById,
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (_) async => bytes,
+      name: '${widget.plan.name.isEmpty ? 'bonkguard_stem_card' : widget.plan.name}_stem'
+          .replaceAll('/', '-'),
+    );
+  } catch (_) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Failed to export stem card. Please try again.')),
+    );
+  } finally {
+    if (mounted) setState(() => _isExportingPdf = false);
+  }
+}
+
+
   @override
   Widget build(BuildContext context) {
     final plan = widget.plan;
@@ -118,16 +148,35 @@ class _PlanTimelineScreenState extends State<PlanTimelineScreen> {
               const SizedBox(height: 12),
 
               // Export button inside body (always works once fuels loaded)
-              SizedBox(
-                height: 44,
-                child: FilledButton.icon(
-                  onPressed: _isExportingPdf
-                      ? null
-                      : () => _exportPdf(fuelById: fuelById),
-                  icon: const Icon(Icons.picture_as_pdf),
-                  label: Text(_isExportingPdf ? 'Exporting...' : 'Export PDF'),
-                ),
-              ),
+              Row(
+  children: [
+    Expanded(
+      child: SizedBox(
+        height: 44,
+        child: FilledButton.icon(
+          onPressed: _isExportingPdf
+              ? null
+              : () => _exportPdf(fuelById: fuelById),
+          icon: const Icon(Icons.picture_as_pdf),
+          label: Text(_isExportingPdf ? 'Exporting...' : 'Export PDF'),
+        ),
+      ),
+    ),
+    const SizedBox(width: 12),
+    Expanded(
+      child: SizedBox(
+        height: 44,
+        child: OutlinedButton.icon(
+          onPressed: _isExportingPdf
+              ? null
+              : () => _exportStemCard(fuelById: fuelById),
+          icon: const Icon(Icons.receipt_long),
+          label: const Text('Stem Card'),
+        ),
+      ),
+    ),
+  ],
+),
 
               const SizedBox(height: 16),
               _buildTimelineTable(context, events, fuelById),
