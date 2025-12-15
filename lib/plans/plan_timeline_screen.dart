@@ -5,6 +5,8 @@ import '../models/plan.dart';
 import '../models/fuel_item.dart';
 import '../services/fuel_service.dart';
 import '../services/plan_pdf_service.dart';
+import 'plan_fullscreen_timeline_screen.dart';
+
 
 class PlanTimelineScreen extends StatefulWidget {
   final Plan plan;
@@ -240,6 +242,22 @@ class _PlanTimelineScreenState extends State<PlanTimelineScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 44,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => PlanFullscreenTimelineScreen(plan: widget.plan),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.fullscreen),
+                        label: const Text('Full-screen timeline'),
+                      ),
+                    ),
+                    
 
                     const SizedBox(height: 16),
                     _buildTimelineTable(context, events, fuelById),
