@@ -117,16 +117,16 @@ class MyPlansScreen extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   trailing: IconButton(
-  icon: const Icon(Icons.timeline),
-  tooltip: 'View timeline',
-  onPressed: () {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PlanTimelineScreen(plan: plan),
-      ),
-    );
-  },
-),
+                    icon: const Icon(Icons.timeline),
+                    tooltip: 'View timeline',
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => PlanTimelineScreen(plan: plan),
+                        ),
+                      );
+                    },
+                  ),
 
                 ),
               );
