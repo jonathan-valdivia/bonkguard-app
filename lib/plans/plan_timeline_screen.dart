@@ -19,116 +19,138 @@ class PlanTimelineScreen extends StatefulWidget {
 }
 
 class _PlanTimelineScreenState extends State<PlanTimelineScreen> {
-  bool _isExportingPdf = false;
+  bool _isBusy = false;
 
-  Future<void> _exportPdf({
-    required Map<String, FuelItem> fuelById,
-  }) async {
-    if (_isExportingPdf) return;
+  String _safeFileBaseName() {
+    final raw = widget.plan.name.isEmpty ? 'bonkguard_plan' : widget.plan.name;
+    // avoid weird characters for filenames
+    return raw.replaceAll('/', '-').replaceAll('\\', '-').trim();
+  }
 
-    // Capture messenger before async work
+  Future<Map<String, FuelItem>> _loadFuelMap(String userId) async {
+    final fuels = await FuelService.instance.streamUserFuels(userId).first;
+    return {for (final f in fuels) f.id: f};
+  }
+
+  Future<void> _exportTimelinePdf() async {
+    if (_isBusy) return;
+
     final messenger = ScaffoldMessenger.of(context);
-
-    setState(() => _isExportingPdf = true);
+    setState(() => _isBusy = true);
 
     try {
+      final fuelById = await _loadFuelMap(widget.plan.userId);
+
       final bytes = await PlanPdfService.instance.buildFuelingTimelinePdf(
-  plan: widget.plan,
-  fuelById: fuelById,
-);
+        plan: widget.plan,
+        fuelById: fuelById,
+      );
 
-
-      // This opens the platform print/share/save sheet
       await Printing.layoutPdf(
         onLayout: (_) async => bytes,
-        name: (widget.plan.name.isEmpty ? 'bonkguard_plan' : widget.plan.name)
-            .replaceAll('/', '-'),
+        name: _safeFileBaseName(),
       );
     } catch (_) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Failed to export PDF. Please try again.')),
       );
     } finally {
-      if (mounted) setState(() => _isExportingPdf = false);
+      if (mounted) setState(() => _isBusy = false);
     }
   }
 
-  Future<void> _exportStemCard({
-  required Map<String, FuelItem> fuelById,
-}) async {
-  if (_isExportingPdf) return;
+  Future<void> _exportStemCardPdf() async {
+    if (_isBusy) return;
 
-  final messenger = ScaffoldMessenger.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isBusy = true);
 
-  setState(() => _isExportingPdf = true);
+    try {
+      final fuelById = await _loadFuelMap(widget.plan.userId);
 
-  try {
-    final bytes = await PlanPdfService.instance.buildStemCardPdf(
-      plan: widget.plan,
-      fuelById: fuelById,
-    );
+      final bytes = await PlanPdfService.instance.buildStemCardPdf(
+        plan: widget.plan,
+        fuelById: fuelById,
+      );
 
-    await Printing.layoutPdf(
-      onLayout: (_) async => bytes,
-      name: '${widget.plan.name.isEmpty ? 'bonkguard_stem_card' : widget.plan.name}_stem'
-          .replaceAll('/', '-'),
-    );
-  } catch (_) {
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Failed to export stem card. Please try again.')),
-    );
-  } finally {
-    if (mounted) setState(() => _isExportingPdf = false);
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: '${_safeFileBaseName()}_stem',
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Failed to export stem card. Please try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isBusy = false);
+    }
   }
-}
 
+  Future<void> _shareTimelinePdf() async {
+    if (_isBusy) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isBusy = true);
+
+    try {
+      final fuelById = await _loadFuelMap(widget.plan.userId);
+
+      final bytes = await PlanPdfService.instance.buildFuelingTimelinePdf(
+        plan: widget.plan,
+        fuelById: fuelById,
+      );
+
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: '${_safeFileBaseName()}.pdf',
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Failed to share PDF. Please try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isBusy = false);
+    }
+  }
+
+  Future<void> _shareStemCardPdf() async {
+    if (_isBusy) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isBusy = true);
+
+    try {
+      final fuelById = await _loadFuelMap(widget.plan.userId);
+
+      final bytes = await PlanPdfService.instance.buildStemCardPdf(
+        plan: widget.plan,
+        fuelById: fuelById,
+      );
+
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: '${_safeFileBaseName()}_stem.pdf',
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Failed to share stem card. Please try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isBusy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final plan = widget.plan;
+    final events = plan.events ?? [];
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Fueling Timeline'),
-        actions: [
-          IconButton(
-            tooltip: 'Export PDF',
-            onPressed: _isExportingPdf
-                ? null
-                : () {
-                    // We need fuels loaded first (handled below in StreamBuilder)
-                    // So we no-op here; the real button is enabled when fuels exist.
-                  },
-            icon: _isExportingPdf
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.picture_as_pdf),
-          ),
-        ],
       ),
-      body: StreamBuilder<List<FuelItem>>(
-        stream: FuelService.instance.streamUserFuels(plan.userId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return const Center(
-              child: Text('Failed to load fuels.'),
-            );
-          }
-
-          final fuels = snapshot.data ?? [];
-          final fuelById = {for (final f in fuels) f.id: f};
-
-          final events = plan.events ?? [];
-
-          if (events.isEmpty) {
-            return const Center(
+      body: events.isEmpty
+          ? const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(
@@ -136,54 +158,95 @@ class _PlanTimelineScreenState extends State<PlanTimelineScreen> {
                   textAlign: TextAlign.center,
                 ),
               ),
-            );
-          }
+            )
+          : StreamBuilder<List<FuelItem>>(
+              stream: FuelService.instance.streamUserFuels(plan.userId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          // Replace the AppBar action behavior now that fuels are loaded:
-          // (We keep it simple: render the whole page and add a button below too.)
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _buildSummaryCard(context),
-              const SizedBox(height: 12),
+                if (snapshot.hasError) {
+                  return const Center(child: Text('Failed to load fuels.'));
+                }
 
-              // Export button inside body (always works once fuels loaded)
-              Row(
-  children: [
-    Expanded(
-      child: SizedBox(
-        height: 44,
-        child: FilledButton.icon(
-          onPressed: _isExportingPdf
-              ? null
-              : () => _exportPdf(fuelById: fuelById),
-          icon: const Icon(Icons.picture_as_pdf),
-          label: Text(_isExportingPdf ? 'Exporting...' : 'Export PDF'),
-        ),
-      ),
-    ),
-    const SizedBox(width: 12),
-    Expanded(
-      child: SizedBox(
-        height: 44,
-        child: OutlinedButton.icon(
-          onPressed: _isExportingPdf
-              ? null
-              : () => _exportStemCard(fuelById: fuelById),
-          icon: const Icon(Icons.receipt_long),
-          label: const Text('Stem Card'),
-        ),
-      ),
-    ),
-  ],
-),
+                final fuels = snapshot.data ?? [];
+                final fuelById = {for (final f in fuels) f.id: f};
 
-              const SizedBox(height: 16),
-              _buildTimelineTable(context, events, fuelById),
-            ],
-          );
-        },
-      ),
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _buildSummaryCard(context),
+                    const SizedBox(height: 12),
+
+                    // Export buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: FilledButton.icon(
+                              onPressed: _isBusy ? null : _exportTimelinePdf,
+                              icon: _isBusy
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.picture_as_pdf),
+                              label: const Text('Export PDF'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: OutlinedButton.icon(
+                              onPressed: _isBusy ? null : _exportStemCardPdf,
+                              icon: const Icon(Icons.receipt_long),
+                              label: const Text('Stem Card'),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Share buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: FilledButton.tonalIcon(
+                              onPressed: _isBusy ? null : _shareTimelinePdf,
+                              icon: const Icon(Icons.share),
+                              label: const Text('Share PDF'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: OutlinedButton.icon(
+                              onPressed: _isBusy ? null : _shareStemCardPdf,
+                              icon: const Icon(Icons.share_outlined),
+                              label: const Text('Share Stem'),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+                    _buildTimelineTable(context, events, fuelById),
+                  ],
+                );
+              },
+            ),
     );
   }
 
@@ -204,12 +267,9 @@ class _PlanTimelineScreenState extends State<PlanTimelineScreen> {
             ),
             const SizedBox(height: 8),
             Text('Duration: ${plan.durationMinutes} min'),
-            if (plan.carbsPerHour != null)
-              Text('Target: ${plan.carbsPerHour} g/hr'),
-            if (plan.intervalMinutes != null)
-              Text('Interval: every ${plan.intervalMinutes} min'),
-            if (plan.startOffsetMinutes != null)
-              Text('Start offset: +${plan.startOffsetMinutes} min'),
+            if (plan.carbsPerHour != null) Text('Target: ${plan.carbsPerHour} g/hr'),
+            if (plan.intervalMinutes != null) Text('Interval: every ${plan.intervalMinutes} min'),
+            if (plan.startOffsetMinutes != null) Text('Start offset: +${plan.startOffsetMinutes} min'),
             Text('Events: $totalEvents'),
             const SizedBox(height: 4),
             Text('Pattern: ${plan.patternType}'),
@@ -225,7 +285,6 @@ class _PlanTimelineScreenState extends State<PlanTimelineScreen> {
     Map<String, FuelItem> fuelById,
   ) {
     int cumulativeCarbs = 0;
-
     final rows = <DataRow>[];
 
     for (final event in events) {
@@ -258,10 +317,7 @@ class _PlanTimelineScreenState extends State<PlanTimelineScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Timeline',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text('Timeline', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
