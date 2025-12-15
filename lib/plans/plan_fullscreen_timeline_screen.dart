@@ -25,6 +25,9 @@ class _PlanFullscreenTimelineScreenState
   DateTime? _startedAt;
   int _elapsedSeconds = 0;
 
+  // ✅ UI-only completion state (index-based)
+  final Set<int> _completedIndexes = {};
+
   bool get _isRunning => _startedAt != null;
 
   @override
@@ -48,9 +51,7 @@ class _PlanFullscreenTimelineScreenState
       if (started == null) return;
 
       final diff = DateTime.now().difference(started).inSeconds;
-      setState(() {
-        _elapsedSeconds = diff;
-      });
+      setState(() => _elapsedSeconds = diff);
     });
   }
 
@@ -62,24 +63,45 @@ class _PlanFullscreenTimelineScreenState
     });
   }
 
+  void _resetChecks() {
+    setState(() {
+      _completedIndexes.clear();
+    });
+  }
+
+  void _toggleCompleted(int index) {
+    setState(() {
+      if (_completedIndexes.contains(index)) {
+        _completedIndexes.remove(index);
+      } else {
+        _completedIndexes.add(index);
+      }
+    });
+  }
+
   String _formatElapsed(int seconds) {
     final m = seconds ~/ 60;
     final s = seconds % 60;
-    final mm = m.toString().padLeft(2, '0');
-    final ss = s.toString().padLeft(2, '0');
-    return '$mm:$ss';
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   int? _nextEventIndex(List<PlanEvent> events) {
     if (!_isRunning) return null;
 
     final elapsedMinutes = _elapsedSeconds ~/ 60;
+
+    // Next not-yet-completed event whose minute >= elapsed
     for (int i = 0; i < events.length; i++) {
-      if (events[i].minuteFromStart >= elapsedMinutes) {
-        return i;
-      }
+      if (_completedIndexes.contains(i)) continue;
+      if (events[i].minuteFromStart >= elapsedMinutes) return i;
     }
-    return null; // past the last event
+
+    // If we’re past all upcoming, show the first not-yet-completed event (if any)
+    for (int i = 0; i < events.length; i++) {
+      if (!_completedIndexes.contains(i)) return i;
+    }
+
+    return null;
   }
 
   @override
@@ -93,6 +115,13 @@ class _PlanFullscreenTimelineScreenState
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         title: const Text('On-bike Timeline'),
+        actions: [
+          IconButton(
+            tooltip: 'Reset checks',
+            onPressed: _completedIndexes.isEmpty ? null : _resetChecks,
+            icon: const Icon(Icons.restart_alt),
+          ),
+        ],
       ),
       body: events.isEmpty
           ? const Center(
@@ -137,7 +166,6 @@ class _PlanFullscreenTimelineScreenState
                     );
                   }
 
-                  // Running: show elapsed + next event
                   String nextText = 'All done 🎉';
                   if (nextIdx != null) {
                     final e = events[nextIdx];
@@ -187,7 +215,7 @@ class _PlanFullscreenTimelineScreenState
                       ),
                       const SizedBox(width: 12),
                       IconButton(
-                        tooltip: 'Stop / reset',
+                        tooltip: 'Stop / reset timer',
                         onPressed: _stop,
                         icon: const Icon(Icons.stop_circle_outlined),
                         color: Colors.white,
@@ -226,86 +254,113 @@ class _PlanFullscreenTimelineScreenState
                               (fuel?.carbsPerServing ?? 0) * e.servings;
 
                           final isNext = nextIdx != null && index == nextIdx;
+                          final isDone = _completedIndexes.contains(index);
 
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: isNext
+                          final bgColor = isDone
+                              ? const Color(0xFF0B0B0B)
+                              : (isNext
                                   ? const Color(0xFF1E2A1E)
-                                  : const Color(0xFF111111),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: isNext
-                                    ? const Color(0xFF66BB6A)
-                                    : const Color(0xFF2A2A2A),
-                                width: isNext ? 2 : 1,
+                                  : const Color(0xFF111111));
+
+                          final borderColor = isDone
+                              ? const Color(0xFF2A2A2A)
+                              : (isNext
+                                  ? const Color(0xFF66BB6A)
+                                  : const Color(0xFF2A2A2A));
+
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () => _toggleCompleted(index),
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: bgColor,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: borderColor,
+                                  width: isNext && !isDone ? 2 : 1,
+                                ),
                               ),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 92,
-                                  child: Text(
-                                    timeLabel,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      height: 1.0,
-                                      shadows: isNext
-                                          ? const [
-                                              Shadow(
-                                                blurRadius: 6,
-                                                color: Color(0xFF66BB6A),
-                                              )
-                                            ]
-                                          : null,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 92,
+                                    child: Text(
+                                      timeLabel,
+                                      style: TextStyle(
+                                        color: isDone
+                                            ? const Color(0xFF777777)
+                                            : Colors.white,
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.bold,
+                                        height: 1.0,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        fuel?.name ?? e.fuelItemId,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w600,
-                                          height: 1.2,
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                fuel?.name ?? e.fuelItemId,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: isDone
+                                                      ? const Color(0xFF777777)
+                                                      : Colors.white,
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.w600,
+                                                  height: 1.2,
+                                                ),
+                                              ),
+                                            ),
+                                            if (isDone)
+                                              const Padding(
+                                                padding:
+                                                    EdgeInsets.only(left: 10),
+                                                child: Icon(
+                                                  Icons.check_circle,
+                                                  color: Color(0xFF66BB6A),
+                                                  size: 26,
+                                                ),
+                                              ),
+                                          ],
                                         ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        '$carbs g carbs',
-                                        style: const TextStyle(
-                                          color: Color(0xFFBDBDBD),
-                                          fontSize: 18,
-                                          height: 1.1,
-                                        ),
-                                      ),
-                                      if (isNext) ...[
-                                        const SizedBox(height: 8),
-                                        const Text(
-                                          'UP NEXT',
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          '$carbs g carbs',
                                           style: TextStyle(
-                                            color: Color(0xFF66BB6A),
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 1.0,
+                                            color: isDone
+                                                ? const Color(0xFF666666)
+                                                : const Color(0xFFBDBDBD),
+                                            fontSize: 18,
+                                            height: 1.1,
                                           ),
                                         ),
+                                        if (isNext && !isDone) ...[
+                                          const SizedBox(height: 8),
+                                          const Text(
+                                            'UP NEXT',
+                                            style: TextStyle(
+                                              color: Color(0xFF66BB6A),
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 1.0,
+                                            ),
+                                          ),
+                                        ],
                                       ],
-                                    ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           );
                         },
