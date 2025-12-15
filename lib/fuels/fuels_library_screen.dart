@@ -1,111 +1,91 @@
-// lib/fuels/fuels_library_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/fuel_item.dart';
 import '../services/fuel_service.dart';
+import '../services/plan_service.dart';
 import '../state/user_profile_notifier.dart';
 import 'add_fuel_screen.dart';
-import 'edit_fuel_screen.dart'; 
-import '../services/plan_service.dart';
-
+import 'edit_fuel_screen.dart';
 
 class FuelsLibraryScreen extends StatelessWidget {
   const FuelsLibraryScreen({super.key});
 
-  void _openAddFuel(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const AddFuelScreen(),
-      ),
+  Future<void> _confirmDeleteFuel({
+    required BuildContext context,
+    required String userId,
+    required FuelItem fuel,
+  }) async {
+    if (fuel.isDefault) return;
+
+    // ✅ Capture these BEFORE any awaits to avoid using context across async gaps
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Safety check: is fuel used by any plan?
+    final isUsed = await PlanService.instance.userHasPlansUsingFuel(
+      userId: userId,
+      fuelId: fuel.id,
     );
-  }
 
-  void _openEditFuel(BuildContext context, FuelItem fuel) {
-    if (fuel.isDefault) return; // safety guard
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => EditFuelScreen(fuel: fuel),
-      ),
-    );
-  }
+    if (isUsed) {
+      // Show info dialog using captured navigator context safely (dialog still needs a context)
+      await showDialog<void>(
+        context: navigator.context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Cannot delete fuel'),
+            content: Text(
+              '"${fuel.name}" is used in one or more of your plans.\n\n'
+              'Edit those plans to remove it first, then delete the fuel.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
 
-  Future<void> _confirmDeleteFuel(
-  BuildContext context,
-  String userId,
-  FuelItem fuel,
-) async {
-  if (fuel.isDefault) return;
-
-  // ✅ Safety check: is fuel used in any plan?
-  final isUsed = await PlanService.instance.userHasPlansUsingFuel(
-    userId: userId,
-    fuelId: fuel.id,
-  );
-
-  if (isUsed) {
-    if (!context.mounted) return;
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
+    final shouldDelete = await showDialog<bool>(
+      context: navigator.context,
+      builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Cannot delete fuel'),
-          content: Text(
-            '"${fuel.name}" is used in one or more of your plans.\n\n'
-            'Edit those plans to remove it first, then delete the fuel.',
-          ),
+          title: const Text('Delete fuel'),
+          content: Text('Are you sure you want to delete "${fuel.name}"?'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
             ),
           ],
         );
       },
     );
-    return;
-  }
 
-  final shouldDelete = await showDialog<bool>(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text('Delete fuel'),
-        content: Text('Are you sure you want to delete "${fuel.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      );
-    },
-  );
+    if (shouldDelete != true) return;
 
-  if (shouldDelete != true) return;
+    try {
+      await FuelService.instance.deleteFuel(fuel.id);
 
-  try {
-    await FuelService.instance.deleteFuel(fuel.id);
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('Fuel deleted.')),
       );
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Failed to delete fuel. Please try again.')),
+      );
     }
-  } catch (_) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Failed to delete fuel. Please try again.')),
-    );
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -144,77 +124,94 @@ class FuelsLibraryScreen extends StatelessWidget {
           final fuels = snapshot.data ?? [];
 
           if (fuels.isEmpty) {
-            return Center(
+            return const Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.local_drink_outlined, size: 48),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'No fuels found',
-                      style: TextStyle(fontSize: 18),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'You can add your favorite gels, drinks, and snacks here.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'No fuels yet.\nTap + to add your first fuel.',
+                  textAlign: TextAlign.center,
                 ),
               ),
             );
           }
 
+          // Optional: defaults first, then alphabetical
+          final sorted = [...fuels]..sort((a, b) {
+            if (a.isDefault != b.isDefault) return a.isDefault ? -1 : 1;
+            return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          });
+
           return ListView.separated(
             padding: const EdgeInsets.all(16),
-            itemCount: fuels.length,
+            itemCount: sorted.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
-              final fuel = fuels[index];
+              final fuel = sorted[index];
 
-              final subtitle =
-                  '${fuel.brand.isNotEmpty ? '${fuel.brand} • ' : ''}'
-                  '${fuel.carbsPerServing} g carbs • '
-                  '${fuel.caloriesPerServing} kcal • '
-                  '${fuel.sodiumMg} mg sodium';
-
-              final isCustom = !fuel.isDefault;
+              final subtitleParts = <String>[];
+              subtitleParts.add('${fuel.carbsPerServing}g carbs');
+              subtitleParts.add('${fuel.caloriesPerServing} kcal');
+              if (fuel.sodiumMg > 0) subtitleParts.add('${fuel.sodiumMg}mg sodium');
+              if (fuel.brand.isNotEmpty) subtitleParts.add(fuel.brand);
 
               return Card(
                 elevation: 1,
                 child: ListTile(
-                  title: Text(fuel.name),
-                  subtitle: Text(subtitle),
-                  onTap: isCustom ? () => _openEditFuel(context, fuel) : null,
-                  trailing: isCustom
-                      ? IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          tooltip: 'Delete fuel',
-                          onPressed: () => _confirmDeleteFuel(context, profile.uid, fuel)
-,
-                        )
-                      : const Padding(
-                          padding: EdgeInsets.only(right: 4),
-                          child: Text(
-                            'Default',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
+                  title: Text(
+                    fuel.isDefault ? '${fuel.name} (Default)' : fuel.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    subtitleParts.join(' • '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: fuel.isDefault ? 'Default fuel' : 'Edit',
+                        icon: Icon(fuel.isDefault ? Icons.lock_outline : Icons.edit),
+                        onPressed: fuel.isDefault
+                            ? null
+                            : () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => EditFuelScreen(fuel: fuel),
+                                  ),
+                                );
+                              },
+                      ),
+                      IconButton(
+                        tooltip: fuel.isDefault ? 'Default fuel' : 'Delete',
+                        icon: Icon(
+                          fuel.isDefault ? Icons.lock_outline : Icons.delete_outline,
+                          color: fuel.isDefault ? null : Colors.red,
                         ),
+                        onPressed: fuel.isDefault
+                            ? null
+                            : () => _confirmDeleteFuel(
+                                  context: context,
+                                  userId: profile.uid,
+                                  fuel: fuel,
+                                ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openAddFuel(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Add fuel'),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AddFuelScreen()),
+          );
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }
