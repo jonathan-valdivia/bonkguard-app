@@ -178,7 +178,7 @@ class _PlanTimelineScreenState extends State<PlanTimelineScreen> {
                 return ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    _buildSummaryCard(context),
+                    _buildSummaryCard(context, fuelById),
                     const SizedBox(height: 12),
 
                     // Export buttons
@@ -268,33 +268,82 @@ class _PlanTimelineScreenState extends State<PlanTimelineScreen> {
     );
   }
 
-  Widget _buildSummaryCard(BuildContext context) {
-    final plan = widget.plan;
-    final totalEvents = plan.events?.length ?? 0;
+  Widget _buildSummaryCard(BuildContext context, Map<String, FuelItem> fuelById) {
+final plan = widget.plan;
+final events = plan.events ?? [];
 
-    return Card(
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              plan.name.isEmpty ? 'Untitled plan' : plan.name,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text('Duration: ${plan.durationMinutes} min'),
-            if (plan.carbsPerHour != null) Text('Target: ${plan.carbsPerHour} g/hr'),
-            if (plan.intervalMinutes != null) Text('Interval: every ${plan.intervalMinutes} min'),
-            if (plan.startOffsetMinutes != null) Text('Start offset: +${plan.startOffsetMinutes} min'),
-            Text('Events: $totalEvents'),
-            const SizedBox(height: 4),
-            Text('Pattern: ${plan.patternType}'),
-          ],
+final totalCarbs = _totalCarbsFromEvents(events, fuelById);
+final totalCalories = _totalCaloriesFromEvents(events, fuelById);
+final avgCarbsHr = _avgCarbsPerHour(totalCarbs, plan.durationMinutes);
+
+final target = plan.carbsPerHour;
+final warning = (target == null)
+    ? null
+    : _deviationWarning(targetCarbsPerHour: target, avgCarbsPerHour: avgCarbsHr);
+
+return Card(
+  elevation: 1,
+  child: Padding(
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          plan.name.isEmpty ? 'Untitled plan' : plan.name,
+          style: Theme.of(context).textTheme.titleLarge,
         ),
-      ),
-    );
+        const SizedBox(height: 8),
+
+        // Core settings
+        Text('Duration: ${plan.durationMinutes} min'),
+        if (plan.carbsPerHour != null) Text('Target: ${plan.carbsPerHour} g/hr'),
+        if (plan.intervalMinutes != null)
+          Text('Interval: every ${plan.intervalMinutes} min'),
+        if (plan.startOffsetMinutes != null)
+          Text('Start offset: +${plan.startOffsetMinutes} min'),
+        Text('Events: ${events.length}'),
+        const SizedBox(height: 4),
+        Text('Pattern: ${plan.patternType}'),
+
+        const SizedBox(height: 12),
+        const Divider(),
+        const SizedBox(height: 8),
+
+        // ✅ BG-210 summary stats
+        Text('Total carbs: $totalCarbs g'),
+        if (totalCalories != null) Text('Total calories: $totalCalories kcal'),
+        Text('Avg carbs/hr: ${avgCarbsHr.toStringAsFixed(1)} g/hr'),
+
+        // ✅ BG-211 warning
+        if (warning != null) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3CD),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFFE69C)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.warning_amber_rounded),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    warning,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    ),
+  ),
+);
+
   }
 
   Widget _buildTimelineTable(
@@ -358,4 +407,51 @@ class _PlanTimelineScreenState extends State<PlanTimelineScreen> {
       ),
     );
   }
+  int _totalCarbsFromEvents(List<PlanEvent> events, Map<String, FuelItem> fuelById) {
+  int total = 0;
+  for (final e in events) {
+    final fuel = fuelById[e.fuelItemId];
+    total += (fuel?.carbsPerServing ?? 0) * e.servings;
+  }
+  return total;
+}
+
+int? _totalCaloriesFromEvents(List<PlanEvent> events, Map<String, FuelItem> fuelById) {
+  int total = 0;
+  bool hasAny = false;
+
+  for (final e in events) {
+    final fuel = fuelById[e.fuelItemId];
+    final cals = fuel?.caloriesPerServing;
+    if (cals == null) continue;
+    hasAny = true;
+    total += cals * e.servings;
+  }
+
+  return hasAny ? total : null;
+}
+
+double _avgCarbsPerHour(int totalCarbs, int durationMinutes) {
+  if (durationMinutes <= 0) return 0;
+  final hours = durationMinutes / 60.0;
+  return totalCarbs / hours;
+}
+
+String? _deviationWarning({
+  required int targetCarbsPerHour,
+  required double avgCarbsPerHour,
+}) {
+  final diff = (avgCarbsPerHour - targetCarbsPerHour).abs();
+
+  // Threshold: max(10g/hr, 10% of target)
+  final percentThreshold = targetCarbsPerHour * 0.10;
+  final threshold = percentThreshold > 10 ? percentThreshold : 10;
+
+  if (diff <= threshold) return null;
+
+  final direction = avgCarbsPerHour > targetCarbsPerHour ? 'above' : 'below';
+  return 'This plan averages ${avgCarbsPerHour.toStringAsFixed(1)} g/hr, '
+      'which is ${diff.toStringAsFixed(1)} g/hr $direction your target.';
+}
+
 }
