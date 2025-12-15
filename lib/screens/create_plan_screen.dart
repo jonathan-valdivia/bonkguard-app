@@ -6,6 +6,9 @@ import '../models/fuel_item.dart';
 import '../services/fuel_service.dart';
 import '../services/plan_service.dart';
 import '../state/user_profile_notifier.dart';
+import '../services/fueling_plan_service.dart';
+import '../models/fuel_plan.dart';
+
 
 class CreatePlanScreen extends StatefulWidget {
   final Plan? initialPlan;
@@ -36,6 +39,61 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   bool _isSaving = false;
 
   bool get _isEditing => widget.initialPlan != null;
+
+  FuelingPlan? _previewPlan;
+
+  FuelItem? _fuelById(List<FuelItem> fuels, String id) {
+  try {
+    return fuels.firstWhere((f) => f.id == id);
+  } catch (_) {
+    return null;
+  }
+}
+
+void _buildPreview(List<FuelItem> fuels, String userId) {
+  final isValid = _formKey.currentState?.validate() ?? false;
+  if (!isValid) return;
+
+  if (_patternAId == null || _patternBId == null || _patternCId == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please select fuels for A, B, and C.')),
+    );
+    return;
+  }
+
+  final durationMinutes = int.parse(_durationController.text.trim());
+  final carbsPerHour = int.parse(_carbsPerHourController.text.trim());
+  final intervalMinutes = int.parse(_intervalMinutesController.text.trim());
+  final startOffsetMinutes =
+      int.parse(_startOffsetMinutesController.text.trim());
+
+  final a = _fuelById(fuels, _patternAId!);
+  final b = _fuelById(fuels, _patternBId!);
+  final c = _fuelById(fuels, _patternCId!);
+
+  if (a == null || b == null || c == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('One or more selected fuels were not found.')),
+    );
+    return;
+  }
+
+  final plan = FuelingPlanService.instance.generateFixedPatternPlan(
+    userId: userId,
+    rideDuration: Duration(minutes: durationMinutes),
+    targetCarbsPerHour: carbsPerHour,
+    patternItems: [a, b, c],
+    intervalMinutes: intervalMinutes,
+    startOffsetMinutes: startOffsetMinutes,
+    name: _nameController.text.trim(),
+  );
+
+  setState(() {
+    _previewPlan = plan;
+  });
+}
+
+
 
   @override
   void initState() {
@@ -410,6 +468,16 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                             setState(() => _patternCId = value);
                           },
                         ),
+                        OutlinedButton.icon(
+  onPressed: _isSaving
+      ? null
+      : () => _buildPreview(fuels, profile.uid),
+  icon: const Icon(Icons.preview),
+  label: const Text('Preview timeline'),
+),
+const SizedBox(height: 12),
+if (_previewPlan != null) _buildTimelinePreview(_previewPlan!, fuels),
+const SizedBox(height: 16),
 
                         const SizedBox(height: 24),
                         FilledButton(
@@ -430,4 +498,68 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
             ),
     );
   }
+  Widget _buildTimelinePreview(FuelingPlan plan, List<FuelItem> fuels) {
+  final fuelById = {for (final f in fuels) f.id: f};
+
+  int cumulativeCarbs = 0;
+  final rows = <DataRow>[];
+
+  for (final event in plan.events) {
+    final item = fuelById[event.fuelItemId];
+    final itemCarbs = (item?.carbsPerServing ?? 0) * event.servings;
+    cumulativeCarbs += itemCarbs;
+
+    final t = event.minuteFromStart;
+    final h = t ~/ 60;
+    final m = t % 60;
+    final timeLabel =
+        '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+
+    rows.add(
+      DataRow(
+        cells: [
+          DataCell(Text(timeLabel)),
+          DataCell(Text(item?.name ?? event.fuelItemId)),
+          DataCell(Text('$itemCarbs')),
+          DataCell(Text('$cumulativeCarbs')),
+        ],
+      ),
+    );
+  }
+
+  return Card(
+    elevation: 1,
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Timeline preview',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text('Total events: ${plan.events.length}'),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columnSpacing: 16,
+              headingRowHeight: 32,
+              dataRowMinHeight: 30,
+              dataRowMaxHeight: 36,
+              columns: const [
+                DataColumn(label: Text('Time')),
+                DataColumn(label: Text('Fuel')),
+                DataColumn(label: Text('Carbs (g)')),
+                DataColumn(label: Text('Total (g)')),
+              ],
+              rows: rows,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 }
