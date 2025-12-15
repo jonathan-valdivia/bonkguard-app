@@ -12,80 +12,69 @@ class FuelsLibraryScreen extends StatelessWidget {
   const FuelsLibraryScreen({super.key});
 
   Future<void> _confirmDeleteFuel({
-    required BuildContext context,
-    required String userId,
-    required FuelItem fuel,
-  }) async {
-    if (fuel.isDefault) return;
+  required BuildContext context,
+  required String userId,
+  required FuelItem fuel,
+}) async {
+  if (fuel.isDefault) return;
 
-    // ✅ Capture these BEFORE any awaits to avoid using context across async gaps
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+  // Capture BEFORE any async gaps
+  final messenger = ScaffoldMessenger.of(context);
 
-    // Safety check: is fuel used by any plan?
+  // ✅ Show confirm dialog FIRST (no awaits before it that could invalidate context usage)
+  final shouldDelete = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Text('Delete fuel'),
+        content: Text('Are you sure you want to delete "${fuel.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (shouldDelete != true) return;
+
+  // ✅ Now we can do async work without needing BuildContext afterward
+  try {
     final isUsed = await PlanService.instance.userHasPlansUsingFuel(
       userId: userId,
       fuelId: fuel.id,
     );
 
     if (isUsed) {
-      // Show info dialog using captured navigator context safely (dialog still needs a context)
-      await showDialog<void>(
-        context: navigator.context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: const Text('Cannot delete fuel'),
-            content: Text(
-              '"${fuel.name}" is used in one or more of your plans.\n\n'
-              'Edit those plans to remove it first, then delete the fuel.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          );
-        },
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            '"${fuel.name}" is used in one or more plans. Edit the plan first.',
+          ),
+        ),
       );
       return;
     }
 
-    final shouldDelete = await showDialog<bool>(
-      context: navigator.context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Delete fuel'),
-          content: Text('Are you sure you want to delete "${fuel.name}"?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
+    await FuelService.instance.deleteFuel(fuel.id);
+
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Fuel deleted.')),
     );
-
-    if (shouldDelete != true) return;
-
-    try {
-      await FuelService.instance.deleteFuel(fuel.id);
-
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Fuel deleted.')),
-      );
-    } catch (_) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Failed to delete fuel. Please try again.')),
-      );
-    }
+  } catch (_) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Failed to delete fuel. Please try again.')),
+    );
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
