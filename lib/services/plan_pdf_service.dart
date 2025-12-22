@@ -196,7 +196,7 @@ class PlanPdfService {
                     ],
                   ),
                 );
-              }).toList(),
+              }),
 
               pw.Spacer(),
               pw.Divider(thickness: 0.6),

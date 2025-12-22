@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/plan.dart';
 import '../services/plan_service.dart';
 import '../state/user_profile_notifier.dart';
-import '../screens/create_plan_screen.dart';
+import 'create_plan_screen.dart';
 import 'plan_timeline_screen.dart';
 
 class MyPlansScreen extends StatelessWidget {

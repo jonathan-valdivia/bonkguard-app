@@ -12,7 +12,7 @@ import 'firebase_options.dart';
 import 'app_theme.dart';
 import 'auth/auth_gate.dart';
 import 'state/user_profile_notifier.dart';
-import 'screens/create_plan_screen.dart';
+import 'plans/create_plan_screen.dart';
 import 'services/fuel_service.dart';
 
 // firebase analytics instance
