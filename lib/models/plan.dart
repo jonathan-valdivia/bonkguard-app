@@ -30,6 +30,7 @@ class PlanEvent {
 }
 
 class Plan {
+  final int schemaVersion;
   final String id;
   final String userId;
   final String name;
@@ -60,6 +61,7 @@ class Plan {
     this.events,
     this.createdAt,
     this.updatedAt,
+    this.schemaVersion = 1,
   });
 
   Map<String, dynamic> toJson() {
@@ -113,6 +115,7 @@ class Plan {
         ?.cast<Map<String, dynamic>>();
 
     return Plan(
+      schemaVersion: (data['schemaVersion'] as int?) ?? 1,
       id: doc.id,
       userId: data['userId'] as String? ?? '',
       name: data['name'] as String? ?? '',

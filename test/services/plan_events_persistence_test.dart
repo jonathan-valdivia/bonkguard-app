@@ -29,12 +29,15 @@ void main() {
         carbsPerHour: 60,
         events: events,
       );
+      
 
       // Read raw doc and confirm events exist
       final saved = await db.collection('plans').doc(ref.id).get();
       final data = saved.data()!;
       expect(data['events'], isA<List<dynamic>>());
       expect((data['events'] as List).length, 3);
+      expect(data['schemaVersion'], 1);
+
 
       // Now read via stream mapping (Plan.fromFirestore)
       final completer = Completer<List<dynamic>>();

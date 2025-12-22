@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/plan.dart';
 
+
+
+
 class PlanService {
     final FirebaseFirestore _db;
 
@@ -10,6 +13,8 @@ class PlanService {
       : _db = firestore ?? FirebaseFirestore.instance;
 
   static final PlanService instance = PlanService();
+
+  static const int currentSchemaVersion = 1;
 
   CollectionReference<Map<String, dynamic>> get _plansRef =>
       _db.collection('plans');
@@ -33,6 +38,7 @@ class PlanService {
   List<Map<String, dynamic>>? events,
 }) async {
   return await _plansRef.add({
+    'schemaVersion': currentSchemaVersion,
     'userId': userId,
     'name': name,
     'durationMinutes': durationMinutes,
@@ -59,6 +65,7 @@ class PlanService {
   List<Map<String, dynamic>>? events,
 }) async {
   await _plansRef.doc(planId).update({
+    'schemaVersion': currentSchemaVersion,
     'name': name,
     'durationMinutes': durationMinutes,
     'patternType': patternType,
