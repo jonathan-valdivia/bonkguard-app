@@ -10,9 +10,9 @@ void main() {
     const userId = 'user123';
 
     setUp(() {
-      firestore = FakeFirebaseFirestore();
-      service = PlanService.forTests(firestore);
-    });
+  firestore = FakeFirebaseFirestore();
+  service = PlanService(firestore: firestore);
+});
 
     test('createPlan writes patternFuelIds as an array and supports arrayContains', () async {
       await service.createPlan(

@@ -13,9 +13,9 @@ void main() {
     const fuelC = 'fuelC';
 
     setUp(() {
-      firestore = FakeFirebaseFirestore();
-      service = PlanService.forTests(firestore);
-    });
+  firestore = FakeFirebaseFirestore();
+  service = PlanService(firestore: firestore);
+});
 
     test('userHasPlansUsingFuel returns false when no plans exist', () async {
       final result = await service.userHasPlansUsingFuel(
